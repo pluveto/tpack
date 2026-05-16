@@ -1,4 +1,11 @@
-use alloc::{borrow::Cow, boxed::Box, string::String, sync::Arc, vec::Vec};
+use alloc::{
+    borrow::Cow,
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet},
+    string::String,
+    sync::Arc,
+    vec::Vec,
+};
 use core::cmp::Ordering;
 
 use crate::{
@@ -302,6 +309,8 @@ impl<'de> Decoder<'de> {
                     return Err(Error::limit("struct field count"));
                 }
                 let mut fields = Vec::with_capacity(count);
+                let mut seen_ids = BTreeSet::new();
+                let mut seen_names = BTreeSet::new();
                 for _ in 0..count {
                     let id = self.read_uvarint()?;
                     if id == 0 {
@@ -316,10 +325,7 @@ impl<'de> Decoder<'de> {
                         return Err(Error::invalid("struct field flags must be zero"));
                     }
                     let ty = self.decode_type_descriptor(depth + 1)?;
-                    if fields
-                        .iter()
-                        .any(|field: &Field| field.id == id || field.name == name)
-                    {
+                    if !seen_ids.insert(id) || !seen_names.insert(name.clone()) {
                         return Err(Error::invalid("duplicate struct field identifier or name"));
                     }
                     fields.push(Field { id, name, ty });
@@ -350,15 +356,13 @@ impl<'de> Decoder<'de> {
                     return Err(Error::limit("union variant count"));
                 }
                 let mut variants = Vec::with_capacity(count);
+                let mut seen_names = BTreeSet::new();
                 for _ in 0..count {
                     let name = self.read_text_owned()?;
                     if name.is_empty() {
                         return Err(Error::invalid("union variant name must be non-empty"));
                     }
-                    if variants
-                        .iter()
-                        .any(|variant: &Variant| variant.name == name)
-                    {
+                    if !seen_names.insert(name.clone()) {
                         return Err(Error::invalid("duplicate union variant name"));
                     }
                     let ty = self.decode_type_descriptor(depth + 1)?;
@@ -372,12 +376,13 @@ impl<'de> Decoder<'de> {
                     return Err(Error::limit("enum symbol count"));
                 }
                 let mut symbols = Vec::with_capacity(count);
+                let mut seen_symbols = BTreeSet::new();
                 for _ in 0..count {
                     let symbol = self.read_text_owned()?;
                     if symbol.is_empty() {
                         return Err(Error::invalid("enum symbol must be non-empty"));
                     }
-                    if symbols.iter().any(|existing| existing == &symbol) {
+                    if !seen_symbols.insert(symbol.clone()) {
                         return Err(Error::invalid("duplicate enum symbol"));
                     }
                     symbols.push(symbol);
@@ -542,10 +547,10 @@ impl<'de> Decoder<'de> {
                 let count = self.read_count("map count")?;
                 validate_count("map count", count, *max_count, &self.options.limits)?;
                 let mut entries = Vec::with_capacity(count);
-                let mut seen_key_bytes: Vec<Vec<u8>> = if self.options.canonical.is_strict() {
-                    Vec::new()
+                let mut seen_key_bytes = if self.options.canonical.is_strict() {
+                    None
                 } else {
-                    Vec::with_capacity(count)
+                    Some(BTreeSet::new())
                 };
                 let mut last_key_bytes: Option<&'de [u8]> = None;
                 for _ in 0..count {
@@ -579,13 +584,13 @@ impl<'de> Decoder<'de> {
                                 limits: self.options.limits,
                             },
                         )?;
-                        if seen_key_bytes
-                            .iter()
-                            .any(|existing| existing == &canonical_key)
+                        if !seen_key_bytes
+                            .as_mut()
+                            .expect("non-strict mode allocates a map-key set")
+                            .insert(canonical_key)
                         {
                             return Err(Error::invalid("duplicate map key"));
                         }
-                        seen_key_bytes.push(canonical_key);
                     }
                     let value = self.decode_value_for(value, depth + 1)?;
                     entries.push(ValueMapEntry {
@@ -619,7 +624,7 @@ impl<'de> Decoder<'de> {
                 _ => return Err(Error::invalid("invalid optional presence marker")),
             },
             TypeDescriptor::Extension { .. } => {
-                let bytes = self.read_byte_component(None)?;
+                let bytes = self.read_extension_component()?;
                 TpackValue::Extension(Cow::Borrowed(bytes))
             }
         };
@@ -662,11 +667,11 @@ impl<'de> Decoder<'de> {
     fn read_uvarint(&mut self) -> Result<u64> {
         // The common case is a one-byte length/id/count. Keep it on a tiny
         // predictable path and push overflow/canonical checks to the cold loop.
-        if let Some(&byte) = self.input.get(self.pos)
-            && byte < 0x80
-        {
-            self.pos += 1;
-            return Ok(u64::from(byte));
+        if let Some(&byte) = self.input.get(self.pos) {
+            if byte < 0x80 {
+                self.pos += 1;
+                return Ok(u64::from(byte));
+            }
         }
         self.read_uvarint_slow()
     }
@@ -711,26 +716,49 @@ impl<'de> Decoder<'de> {
     }
 
     fn read_text_borrowed(&mut self, schema_max: Option<u64>) -> Result<&'de str> {
-        let bytes = self.read_byte_component(schema_max)?;
+        let bytes = self.read_limited_component(
+            "string length",
+            schema_max,
+            self.options.limits.max_string_len,
+        )?;
         Ok(core::str::from_utf8(bytes)?)
     }
 
     fn read_bytes_owned(&mut self, limit: usize) -> Result<Vec<u8>> {
-        let len = self.read_len("byte string length")?;
-        if len > limit {
-            return Err(Error::limit("byte string length"));
-        }
-        Ok(self.read_bytes(len)?.to_vec())
+        Ok(self
+            .read_limited_component("byte string length", None, limit)?
+            .to_vec())
     }
 
     fn read_byte_component(&mut self, schema_max: Option<u64>) -> Result<&'de [u8]> {
-        let len = self.read_len("byte string length")?;
+        self.read_limited_component(
+            "byte string length",
+            schema_max,
+            self.options.limits.max_bytes_len,
+        )
+    }
+
+    fn read_extension_component(&mut self) -> Result<&'de [u8]> {
+        self.read_limited_component(
+            "extension payload size",
+            None,
+            self.options.limits.max_extension_len,
+        )
+    }
+
+    fn read_limited_component(
+        &mut self,
+        limit_name: &'static str,
+        schema_max: Option<u64>,
+        max_len: usize,
+    ) -> Result<&'de [u8]> {
+        let len = self.read_len(limit_name)?;
         let limit = schema_max
             .and_then(|max| usize::try_from(max).ok())
-            .unwrap_or(self.options.limits.max_bytes_len)
-            .min(self.options.limits.max_bytes_len);
+            .unwrap_or(max_len)
+            .min(max_len);
         if len > limit {
-            return Err(Error::limit("byte string length"));
+            return Err(Error::limit(limit_name));
         }
         self.read_bytes(len)
     }
@@ -1080,19 +1108,21 @@ fn encode_value_into(
                 return Ok(());
             }
 
-            for (index, (id, _)) in values.iter().enumerate() {
-                if fields.iter().any(|field| field.id == *id)
-                    && values[..index].iter().any(|(previous, _)| previous == id)
-                {
+            let known_field_ids: BTreeSet<u64> = fields.iter().map(|field| field.id).collect();
+            let mut provided_values = BTreeMap::new();
+            for (id, field_value) in values {
+                if !known_field_ids.contains(id) {
+                    continue;
+                }
+                if provided_values.insert(*id, field_value).is_some() {
                     return Err(Error::invalid("duplicate struct field value"));
                 }
             }
 
             for field in fields {
-                let field_value = values
-                    .iter()
-                    .find(|(id, _)| *id == field.id)
-                    .map(|(_, value)| value)
+                let field_value = provided_values
+                    .get(&field.id)
+                    .copied()
                     .ok_or(Error::invalid("missing struct field value"))?;
                 encode_value_into(out, &field.ty, field_value, options)?;
             }
@@ -1246,17 +1276,16 @@ fn validate_type_descriptor(ty: &TypeDescriptor, limits: &Limits, depth: usize) 
             if fields.len() > limits.max_fields {
                 return Err(Error::limit("struct field count"));
             }
-            for (index, field) in fields.iter().enumerate() {
+            let mut seen_ids = BTreeSet::new();
+            let mut seen_names = BTreeSet::new();
+            for field in fields {
                 if field.id == 0 {
                     return Err(Error::invalid("struct FieldId must be greater than zero"));
                 }
                 if field.name.is_empty() {
                     return Err(Error::invalid("struct field name must be non-empty"));
                 }
-                if fields[..index]
-                    .iter()
-                    .any(|previous| previous.id == field.id || previous.name == field.name)
-                {
+                if !seen_ids.insert(field.id) || !seen_names.insert(field.name.as_str()) {
                     return Err(Error::invalid("duplicate struct field identifier or name"));
                 }
                 validate_type_descriptor(&field.ty, limits, depth + 1)?;
@@ -1276,14 +1305,12 @@ fn validate_type_descriptor(ty: &TypeDescriptor, limits: &Limits, depth: usize) 
             if variants.len() > limits.max_variants {
                 return Err(Error::limit("union variant count"));
             }
-            for (index, variant) in variants.iter().enumerate() {
+            let mut seen_names = BTreeSet::new();
+            for variant in variants {
                 if variant.name.is_empty() {
                     return Err(Error::invalid("union variant name must be non-empty"));
                 }
-                if variants[..index]
-                    .iter()
-                    .any(|previous| previous.name == variant.name)
-                {
+                if !seen_names.insert(variant.name.as_str()) {
                     return Err(Error::invalid("duplicate union variant name"));
                 }
                 validate_type_descriptor(&variant.ty, limits, depth + 1)?;
@@ -1293,11 +1320,12 @@ fn validate_type_descriptor(ty: &TypeDescriptor, limits: &Limits, depth: usize) 
             if symbols.len() > limits.max_variants {
                 return Err(Error::limit("enum symbol count"));
             }
-            for (index, symbol) in symbols.iter().enumerate() {
+            let mut seen_symbols = BTreeSet::new();
+            for symbol in symbols {
                 if symbol.is_empty() {
                     return Err(Error::invalid("enum symbol must be non-empty"));
                 }
-                if symbols[..index].iter().any(|previous| previous == symbol) {
+                if !seen_symbols.insert(symbol.as_str()) {
                     return Err(Error::invalid("duplicate enum symbol"));
                 }
             }
@@ -1349,10 +1377,10 @@ fn validate_count(
     schema_max: Option<u64>,
     limits: &Limits,
 ) -> Result<()> {
-    if let Some(max) = schema_max
-        && u64::try_from(actual).map_or(true, |actual| actual > max)
-    {
-        return Err(Error::limit(name));
+    if let Some(max) = schema_max {
+        if u64::try_from(actual).map_or(true, |actual| actual > max) {
+            return Err(Error::limit(name));
+        }
     }
     if actual > limits.max_collection_len {
         return Err(Error::limit(name));
@@ -1366,10 +1394,10 @@ fn validate_byte_len(
     schema_max: Option<u64>,
     limits: &Limits,
 ) -> Result<()> {
-    if let Some(max) = schema_max
-        && u64::try_from(len).map_or(true, |len| len > max)
-    {
-        return Err(Error::limit(name));
+    if let Some(max) = schema_max {
+        if u64::try_from(len).map_or(true, |len| len > max) {
+            return Err(Error::limit(name));
+        }
     }
     let limit = match name {
         "string length" => limits.max_string_len,

@@ -1,0 +1,10 @@
+[workspace]
+release_always = true
+repo_url = "https://github.com/pluveto/tpack"
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to this project will be documented in this file.
+"""

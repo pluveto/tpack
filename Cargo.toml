@@ -1,0 +1,14 @@
+[workspace]
+members = [
+    "crates/tpack-core",
+    "crates/tpack-macros",
+    "crates/tpack",
+    "crates/tpack-cli",
+]
+resolver = "3"
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/pluveto/tpack"
+rust-version = "1.91"

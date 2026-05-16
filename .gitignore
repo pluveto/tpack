@@ -1,0 +1,26 @@
+# Rust build output
+target/
+
+# Cargo metadata
+Cargo.lock
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# release-plz and local release artifacts
+.release-plz/
+.tmp/
+
+# Coverage and test artifacts
+coverage/
+*.profraw
+*.profdata

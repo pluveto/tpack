@@ -28,8 +28,12 @@ impl CanonicalMode {
     }
 }
 
+/// Resource limits applied during schema validation and message encode/decode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Limits {
+    /// Maximum encoded schema size in bytes.
+    ///
+    /// This limit is enforced symmetrically on decode and encode paths.
     pub max_schema_len: usize,
     pub max_schema_id_len: usize,
     pub max_depth: usize,
@@ -59,10 +63,17 @@ impl Default for Limits {
     }
 }
 
+/// Decoder behavior switches and resource limits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DecodeOptions {
     pub canonical: CanonicalMode,
     pub allow_schema_ref: bool,
+    /// Validate embedded schema bytes on `FullSchemaWithId` registry hits.
+    ///
+    /// When enabled, the decoder reparses the embedded schema block and
+    /// requires it to match the cached schema before reusing the cached AST.
+    /// Disable this only when the registry entry is already trusted and the
+    /// embedded schema bytes do not need to be checked.
     pub validate_embedded_schema_on_cache_hit: bool,
     pub limits: Limits,
 }
@@ -78,6 +89,7 @@ impl Default for DecodeOptions {
     }
 }
 
+/// Encoder behavior switches and resource limits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct EncodeOptions {
     pub canonical: CanonicalMode,

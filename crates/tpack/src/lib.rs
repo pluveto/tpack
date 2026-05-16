@@ -1,3 +1,5 @@
+#![doc = include_str!("../README.md")]
+
 pub use tpack_core::*;
 
 #[cfg(feature = "derive")]

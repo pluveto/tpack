@@ -32,6 +32,11 @@ where
     from_value_with_limits(schema, value, Limits::default())
 }
 
+/// Deserialize a `TpackValue` with an explicit limits budget.
+///
+/// Use this when the in-memory value itself may be untrusted or unusually
+/// deep. `from_slice` and `from_slice_with_registry` already enforce limits
+/// while decoding bytes into `TpackValue`.
 pub fn from_value_with_limits<'de, T>(
     schema: &Schema,
     value: TpackValue<'de>,

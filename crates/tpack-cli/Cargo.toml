@@ -11,4 +11,5 @@ name = "tpack"
 path = "src/main.rs"
 
 [dependencies]
+lexopt = "0.3"
 tpack = { path = "../tpack", features = ["std"] }

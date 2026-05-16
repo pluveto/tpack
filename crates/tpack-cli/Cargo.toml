@@ -6,5 +6,9 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[[bin]]
+name = "tpack"
+path = "src/main.rs"
+
 [dependencies]
 tpack = { path = "../tpack", features = ["std"] }

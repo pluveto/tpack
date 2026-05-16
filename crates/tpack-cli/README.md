@@ -12,6 +12,5 @@ Command-line tooling for inspecting and verifying TPACK payloads.
 
 ```bash
 cargo install tpack-cli
-tpack-cli verify -i payload.bin
+tpack verify -i payload.bin
 ```
-

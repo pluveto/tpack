@@ -671,6 +671,49 @@ mod reference_cases {
         ));
     }
 
+    #[cfg(all(feature = "serde_support", feature = "std"))]
+    #[test]
+    fn serde_support_builder_uses_registry_for_schema_ref_messages() {
+        use serde::Deserialize;
+
+        #[derive(Debug, Deserialize, PartialEq)]
+        struct Payload {
+            id: String,
+            qty: i32,
+        }
+
+        let schema = Schema::new(TypeDescriptor::Struct(vec![
+            Field::new(1, "id", TypeDescriptor::String { max_len: None }),
+            Field::new(2, "qty", TypeDescriptor::I32),
+        ]));
+        let value = TpackValue::Struct(vec![
+            (1, TpackValue::String(Cow::Borrowed("ord-1"))),
+            (2, TpackValue::I32(7)),
+        ]);
+        let bytes = encode_message(
+            &schema,
+            &value,
+            EnvelopeMode::SchemaRef,
+            Some(b"example.payload.v1"),
+        )
+        .unwrap();
+
+        let registry = tpack::StdSchemaRegistry::new();
+        registry.insert(b"example.payload.v1", schema);
+
+        let decoded: Payload = tpack::serde_support::Deserializer::new()
+            .registry(&registry)
+            .from_slice(&bytes)
+            .unwrap();
+        assert_eq!(
+            decoded,
+            Payload {
+                id: "ord-1".to_string(),
+                qty: 7,
+            }
+        );
+    }
+
     #[test]
     fn data_type_roundtrips_cover_temporal_duration_interval_and_extension() {
         let schema = Schema::new(TypeDescriptor::Struct(vec![

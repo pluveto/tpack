@@ -20,4 +20,4 @@ When decoding `FullSchemaWithId` with a registry hit, the default path now repar
 
 The serde bridge is available when the `serde_support` feature is enabled. It is intended for compatibility and convenience, not the fastest decode path.
 
-`from_slice` and `from_slice_with_registry` inherit the byte-level decoder limits. `from_value` applies `Limits::default()`, and `from_value_with_limits` is available when an in-memory `TpackValue` needs an explicit depth budget or other non-default limits.
+`from_slice` and `from_value` keep the default path small. When serde decoding needs a registry, custom limits, or custom `DecodeOptions`, use `serde_support::Deserializer::new()` and configure it with builder-style methods before calling `from_slice` or `from_value`.

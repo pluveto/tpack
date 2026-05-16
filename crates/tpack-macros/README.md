@@ -13,12 +13,12 @@ This crate generates `TpackSerialize` and `TpackDeserialize` implementations fro
 ## Example
 
 ```rust
+#[tpack(auto)]
 #[derive(TpackSerialize, TpackDeserialize)]
 pub struct LogEntry {
-    #[tpack(field_id = 1)]
     pub timestamp: u64,
-    #[tpack(field_id = 2)]
     pub message: String,
 }
 ```
 
+By default, each field must declare `#[tpack(field_id = N)]`. Add `#[tpack(auto)]` to opt into declaration-order numbering starting at 1.

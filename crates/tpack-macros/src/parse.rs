@@ -9,6 +9,7 @@ pub(crate) fn parse_item(input: TokenStream) -> Result<Item, String> {
 
 #[derive(Debug, Clone, Default)]
 struct Attr {
+    auto: bool,
     field_id: Option<u64>,
     rename: Option<String>,
     tpack_ty: Option<String>,
@@ -16,6 +17,7 @@ struct Attr {
 
 impl Attr {
     fn merge(&mut self, other: Attr) {
+        self.auto |= other.auto;
         if other.field_id.is_some() {
             self.field_id = other.field_id;
         }
@@ -39,15 +41,23 @@ impl<'a> Cursor<'a> {
     }
 
     fn parse_item(mut self) -> Result<Item, String> {
+        let mut auto_field_id = false;
         while let Some(token) = self.tokens.get(self.index) {
+            if let Some(attr) = self.parse_tpack_attr()? {
+                auto_field_id |= attr.auto;
+                continue;
+            }
+            if self.parse_tpack_container_attr(&mut auto_field_id)? {
+                continue;
+            }
             match token {
                 TokenTree::Ident(ident) if ident.to_string() == "struct" => {
                     self.index += 1;
-                    return self.parse_struct();
+                    return self.parse_struct(auto_field_id);
                 }
                 TokenTree::Ident(ident) if ident.to_string() == "enum" => {
                     self.index += 1;
-                    return self.parse_enum();
+                    return self.parse_enum(auto_field_id);
                 }
                 _ => self.index += 1,
             }
@@ -55,13 +65,13 @@ impl<'a> Cursor<'a> {
         Err("Tpack derive supports structs and enums".into())
     }
 
-    fn parse_struct(&mut self) -> Result<Item, String> {
+    fn parse_struct(&mut self, auto_field_id: bool) -> Result<Item, String> {
         let name = self.next_ident()?;
         while let Some(token) = self.tokens.get(self.index) {
             if let TokenTree::Group(group) = token
                 && group.delimiter() == Delimiter::Brace
             {
-                let fields = Self::parse_named_fields_stream(group.stream())?;
+                let fields = Self::parse_named_fields_stream(group.stream(), auto_field_id)?;
                 return Ok(Item {
                     name,
                     kind: ItemKind::Struct(fields),
@@ -72,7 +82,7 @@ impl<'a> Cursor<'a> {
         Err("Tpack derive supports only named-field structs".into())
     }
 
-    fn parse_enum(&mut self) -> Result<Item, String> {
+    fn parse_enum(&mut self, _auto_field_id: bool) -> Result<Item, String> {
         let name = self.next_ident()?;
         while let Some(token) = self.tokens.get(self.index) {
             if let TokenTree::Group(group) = token
@@ -89,12 +99,15 @@ impl<'a> Cursor<'a> {
         Err("malformed enum for Tpack derive".into())
     }
 
-    fn parse_named_fields_stream(input: TokenStream) -> Result<Vec<Field>, String> {
+    fn parse_named_fields_stream(
+        input: TokenStream,
+        auto_field_id: bool,
+    ) -> Result<Vec<Field>, String> {
         let tokens: Vec<_> = input.into_iter().collect();
-        Cursor::new(&tokens).parse_named_fields()
+        Cursor::new(&tokens).parse_named_fields(auto_field_id)
     }
 
-    fn parse_named_fields(mut self) -> Result<Vec<Field>, String> {
+    fn parse_named_fields(mut self, auto_field_id: bool) -> Result<Vec<Field>, String> {
         let mut fields = Vec::new();
         let mut pending_attr = Attr::default();
         while self.index < self.tokens.len() {
@@ -112,9 +125,13 @@ impl<'a> Cursor<'a> {
             };
             self.expect_punct(':')?;
             let ty = self.collect_until_comma();
-            let field_id = pending_attr
-                .field_id
-                .ok_or_else(|| format!("field `{rust_name}` is missing #[tpack(field_id = N)]"))?;
+            let field_id = if auto_field_id {
+                pending_attr.field_id.unwrap_or((fields.len() as u64) + 1)
+            } else {
+                pending_attr.field_id.ok_or_else(|| {
+                    format!("field `{rust_name}` is missing #[tpack(field_id = N)]")
+                })?
+            };
             let wire_name = pending_attr
                 .rename
                 .take()
@@ -226,12 +243,13 @@ impl<'a> Cursor<'a> {
                     .ok_or("expected attribute key")?,
             );
             cursor.index += 1;
-            cursor.expect_punct('=')?;
-            let Some(value) = cursor.tokens.get(cursor.index) else {
-                return Err(format!("missing value for tpack attribute `{key}`"));
-            };
             match key.as_str() {
+                "auto" => attr.auto = true,
                 "field_id" => {
+                    cursor.expect_punct('=')?;
+                    let Some(value) = cursor.tokens.get(cursor.index) else {
+                        return Err("missing value for tpack attribute `field_id`".into());
+                    };
                     attr.field_id = Some(
                         cursor
                             .token_text(value)
@@ -239,13 +257,69 @@ impl<'a> Cursor<'a> {
                             .map_err(|_| "field_id must be an integer literal".to_string())?,
                     );
                 }
-                "rename" => attr.rename = Some(cursor.unquote_literal(value)?),
-                "type" | "ty" => attr.tpack_ty = Some(cursor.unquote_literal(value)?),
+                "rename" | "type" | "ty" => {
+                    cursor.expect_punct('=')?;
+                    let Some(value) = cursor.tokens.get(cursor.index) else {
+                        return Err(format!("missing value for tpack attribute `{key}`"));
+                    };
+                    match key.as_str() {
+                        "rename" => attr.rename = Some(cursor.unquote_literal(value)?),
+                        "type" | "ty" => attr.tpack_ty = Some(cursor.unquote_literal(value)?),
+                        _ => unreachable!(),
+                    }
+                }
                 _ => return Err(format!("unsupported tpack attribute `{key}`")),
             }
             cursor.index += 1;
         }
         Ok(Some(attr))
+    }
+
+    fn parse_tpack_container_attr(&mut self, auto_field_id: &mut bool) -> Result<bool, String> {
+        if self.index + 1 >= self.tokens.len() || !self.current_is_punct('#') {
+            return Ok(false);
+        }
+        let TokenTree::Group(group) = &self.tokens[self.index + 1] else {
+            return Ok(false);
+        };
+        if group.delimiter() != Delimiter::Bracket {
+            return Ok(false);
+        }
+        self.index += 2;
+        let mut inner = group.stream().into_iter();
+        let Some(TokenTree::Ident(name)) = inner.next() else {
+            return Ok(false);
+        };
+        if name.to_string() != "tpack" {
+            return Ok(false);
+        }
+        let Some(TokenTree::Group(args)) = inner.next() else {
+            *auto_field_id = true;
+            return Ok(true);
+        };
+        if args.delimiter() != Delimiter::Parenthesis {
+            return Err("malformed tpack container attribute".into());
+        }
+        let args: Vec<_> = args.stream().into_iter().collect();
+        let mut cursor = Cursor::new(&args);
+        while cursor.index < cursor.tokens.len() {
+            if cursor.current_is_comma() {
+                cursor.index += 1;
+                continue;
+            }
+            let key = cursor.token_text(
+                cursor
+                    .tokens
+                    .get(cursor.index)
+                    .ok_or("expected attribute key")?,
+            );
+            cursor.index += 1;
+            match key.as_str() {
+                "auto" => *auto_field_id = true,
+                _ => return Err(format!("unsupported tpack container attribute `{key}`")),
+            }
+        }
+        Ok(true)
     }
 
     fn next_ident(&mut self) -> Result<String, String> {

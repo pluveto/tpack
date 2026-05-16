@@ -382,6 +382,13 @@ mod reference_cases {
         }
 
         #[derive(Debug, PartialEq, TpackSerialize, TpackDeserialize)]
+        #[tpack(auto)]
+        struct AutoOrder {
+            id: String,
+            qty: i32,
+        }
+
+        #[derive(Debug, PartialEq, TpackSerialize, TpackDeserialize)]
         enum Side {
             Buy,
             Sell,
@@ -425,6 +432,15 @@ mod reference_cases {
                 (1, TpackValue::String(Cow::Borrowed("ord-2"))),
             ]))
             .is_err()
+        );
+
+        let auto = AutoOrder {
+            id: "ord-3".to_string(),
+            qty: 11,
+        };
+        assert_eq!(
+            AutoOrder::from_tpack_value(auto.to_tpack_value()).unwrap(),
+            auto
         );
 
         let side = Side::Sell;

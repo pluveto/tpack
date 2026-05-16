@@ -464,6 +464,67 @@ fn struct_values_are_encoded_by_field_id_not_input_order() {
     );
 }
 
+#[test]
+fn decoder_enforces_max_string_len_even_when_max_bytes_len_is_larger() {
+    let string_schema = Schema::new(TypeDescriptor::String { max_len: None });
+    let string_value = TpackValue::String(Cow::Borrowed("four"));
+    let string_bytes = encode_message(
+        &string_schema,
+        &string_value,
+        EnvelopeMode::FullSchema,
+        None,
+    )
+    .unwrap();
+    let mut decoder = Decoder::with_options(
+        &string_bytes,
+        DecodeOptions {
+            limits: tpack::Limits {
+                max_string_len: 3,
+                max_bytes_len: 16,
+                ..tpack::Limits::default()
+            },
+            ..DecodeOptions::default()
+        },
+    );
+    assert!(matches!(
+        decoder.decode_message().unwrap_err().kind(),
+        ErrorKind::LimitExceeded("string length")
+    ));
+}
+
+#[test]
+fn decoder_enforces_max_extension_len_even_when_max_bytes_len_is_larger() {
+    let extension_schema = Schema::new(TypeDescriptor::Extension {
+        authority: "example".to_string(),
+        type_name: "opaque".to_string(),
+        schema_params: Vec::new(),
+    });
+    let extension_value = TpackValue::Extension(Cow::Borrowed(&[1, 2, 3, 4]));
+    let extension_bytes = encode_message(
+        &extension_schema,
+        &extension_value,
+        EnvelopeMode::FullSchema,
+        None,
+    )
+    .unwrap();
+    let mut decoder = Decoder::with_options(
+        &extension_bytes,
+        DecodeOptions {
+            limits: tpack::Limits {
+                max_extension_len: 3,
+                max_bytes_len: 16,
+                ..tpack::Limits::default()
+            },
+            ..DecodeOptions::default()
+        },
+    );
+    assert!(matches!(
+        decoder.decode_message().unwrap_err().kind(),
+        ErrorKind::LimitExceeded("extension payload size")
+            | ErrorKind::LimitExceeded("byte string length")
+    ));
+}
+
 #[cfg(feature = "serde_support")]
 #[test]
 fn serde_support_decodes_struct_list_map_option_and_enum() {
@@ -557,6 +618,54 @@ fn serde_support_decodes_struct_list_map_option_and_enum() {
             status: Status::Done,
         }
     );
+}
+
+#[cfg(feature = "serde_support")]
+#[test]
+fn serde_support_struct_field_matching_keeps_order_unknown_and_duplicate_behavior() {
+    use serde::Deserialize;
+
+    #[derive(Debug, Deserialize, PartialEq)]
+    struct Payload {
+        id: String,
+        qty: i32,
+    }
+
+    let schema = Schema::new(TypeDescriptor::Struct(vec![
+        Field::new(1, "id", TypeDescriptor::String { max_len: None }),
+        Field::new(2, "qty", TypeDescriptor::I32),
+    ]));
+
+    let decoded: Payload = tpack::serde_support::from_value(
+        &schema,
+        TpackValue::Struct(vec![
+            (2, TpackValue::I32(7)),
+            (99, TpackValue::String(Cow::Borrowed("ignored"))),
+            (1, TpackValue::String(Cow::Borrowed("ord-1"))),
+        ]),
+    )
+    .unwrap();
+    assert_eq!(
+        decoded,
+        Payload {
+            id: "ord-1".to_string(),
+            qty: 7,
+        }
+    );
+
+    let duplicate_error = tpack::serde_support::from_value::<Payload>(
+        &schema,
+        TpackValue::Struct(vec![
+            (1, TpackValue::String(Cow::Borrowed("ord-1"))),
+            (2, TpackValue::I32(7)),
+            (1, TpackValue::String(Cow::Borrowed("ord-2"))),
+        ]),
+    )
+    .unwrap_err();
+    assert!(matches!(
+        duplicate_error.kind(),
+        ErrorKind::Invalid(message) if message == "duplicate struct field value"
+    ));
 }
 
 #[test]

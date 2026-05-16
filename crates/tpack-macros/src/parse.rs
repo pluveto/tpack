@@ -68,14 +68,14 @@ impl<'a> Cursor<'a> {
     fn parse_struct(&mut self, auto_field_id: bool) -> Result<Item, String> {
         let name = self.next_ident()?;
         while let Some(token) = self.tokens.get(self.index) {
-            if let TokenTree::Group(group) = token
-                && group.delimiter() == Delimiter::Brace
-            {
-                let fields = Self::parse_named_fields_stream(group.stream(), auto_field_id)?;
-                return Ok(Item {
-                    name,
-                    kind: ItemKind::Struct(fields),
-                });
+            if let TokenTree::Group(group) = token {
+                if group.delimiter() == Delimiter::Brace {
+                    let fields = Self::parse_named_fields_stream(group.stream(), auto_field_id)?;
+                    return Ok(Item {
+                        name,
+                        kind: ItemKind::Struct(fields),
+                    });
+                }
             }
             self.index += 1;
         }
@@ -85,14 +85,14 @@ impl<'a> Cursor<'a> {
     fn parse_enum(&mut self, _auto_field_id: bool) -> Result<Item, String> {
         let name = self.next_ident()?;
         while let Some(token) = self.tokens.get(self.index) {
-            if let TokenTree::Group(group) = token
-                && group.delimiter() == Delimiter::Brace
-            {
-                let variants = Self::parse_variants_stream(group.stream())?;
-                return Ok(Item {
-                    name,
-                    kind: ItemKind::Enum(variants),
-                });
+            if let TokenTree::Group(group) = token {
+                if group.delimiter() == Delimiter::Brace {
+                    let variants = Self::parse_variants_stream(group.stream())?;
+                    return Ok(Item {
+                        name,
+                        kind: ItemKind::Enum(variants),
+                    });
+                }
             }
             self.index += 1;
         }

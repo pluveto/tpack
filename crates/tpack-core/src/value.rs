@@ -55,6 +55,17 @@ pub struct ValueMapEntry<'de> {
 }
 
 impl<'de> TpackValue<'de> {
+    pub fn is_composite(&self) -> bool {
+        matches!(
+            self,
+            Self::Struct(_)
+                | Self::List(_)
+                | Self::Map(_)
+                | Self::Union { .. }
+                | Self::Optional(Some(_))
+        )
+    }
+
     pub fn into_owned(self) -> TpackValue<'static> {
         match self {
             TpackValue::Null => TpackValue::Null,

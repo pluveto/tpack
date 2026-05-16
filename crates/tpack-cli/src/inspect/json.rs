@@ -265,7 +265,7 @@ impl<'a> JsonFormatter<'a> {
             TpackValue::Struct(values) => {
                 shared::line(out, indent, "{");
                 for (index, (field_id, field_value)) in values.iter().enumerate() {
-                    let field = shared::find_struct_field(ty, *field_id);
+                    let field = ty.and_then(|ty| ty.struct_field(*field_id));
                     let field_ty = field.map(|field| &field.ty);
                     let name = field
                         .map(|field| field.name.as_str())
@@ -282,7 +282,7 @@ impl<'a> JsonFormatter<'a> {
             }
             TpackValue::List(values) => {
                 shared::line(out, indent, "[");
-                let element_ty = shared::list_element_type(ty);
+                let element_ty = ty.and_then(|ty| ty.list_element());
                 for (index, item) in values.iter().enumerate() {
                     Self::write_value(item, element_ty, out, indent + 1);
                     shared::trim_last_newline(out);
@@ -293,7 +293,11 @@ impl<'a> JsonFormatter<'a> {
             }
             TpackValue::Map(entries) => {
                 shared::line(out, indent, "[");
-                let (key_ty, value_ty) = shared::map_types(ty);
+                let (key_ty, value_ty) = ty
+                    .and_then(|ty| ty.map_key_value())
+                    .map_or((None, None), |(key_ty, value_ty)| {
+                        (Some(key_ty), Some(value_ty))
+                    });
                 for (index, entry) in entries.iter().enumerate() {
                     shared::line(out, indent + 1, "{");
                     shared::write_json_property(out, indent + 2, "key", |out, indent| {
@@ -322,14 +326,17 @@ impl<'a> JsonFormatter<'a> {
                 shared::line(out, indent, "{");
                 shared::line(out, indent + 1, &format!("\"variant\": {index},"));
                 shared::write_json_property(out, indent + 1, "value", |out, indent| {
-                    Self::write_value(value, shared::union_variant_type(ty, *index), out, indent);
+                    let variant_ty = ty
+                        .and_then(|ty| ty.union_variant(*index))
+                        .map(|variant| &variant.ty);
+                    Self::write_value(value, variant_ty, out, indent);
                 });
                 shared::trim_last_newline(out);
                 out.push('\n');
                 shared::line(out, indent, "}");
             }
             TpackValue::Optional(Some(value)) => {
-                Self::write_value(value, shared::optional_inner_type(ty), out, indent);
+                Self::write_value(value, ty.and_then(|ty| ty.optional_inner()), out, indent);
             }
             TpackValue::Optional(None) | TpackValue::Null => shared::line(out, indent, "null"),
             TpackValue::Bool(value) => shared::line(out, indent, &value.to_string()),

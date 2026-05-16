@@ -76,7 +76,7 @@ impl<'a> TreeFormatter<'a> {
                             shared::type_inline(&field.ty)
                         ),
                     );
-                    if shared::type_needs_tree(&field.ty) {
+                    if field.ty.is_composite() {
                         self.write_type(&field.ty, indent + 2);
                     }
                 }
@@ -104,7 +104,7 @@ impl<'a> TreeFormatter<'a> {
                     indent + 1,
                     &format!("key: {}", shared::type_inline(key)),
                 );
-                if shared::type_needs_tree(key) {
+                if key.is_composite() {
                     self.write_type(key, indent + 2);
                 }
                 shared::line(
@@ -112,7 +112,7 @@ impl<'a> TreeFormatter<'a> {
                     indent + 1,
                     &format!("value: {}", shared::type_inline(value)),
                 );
-                if shared::type_needs_tree(value) {
+                if value.is_composite() {
                     self.write_type(value, indent + 2);
                 }
             }
@@ -128,7 +128,7 @@ impl<'a> TreeFormatter<'a> {
                             shared::type_inline(&variant.ty)
                         ),
                     );
-                    if shared::type_needs_tree(&variant.ty) {
+                    if variant.ty.is_composite() {
                         self.write_type(&variant.ty, indent + 2);
                     }
                 }
@@ -145,7 +145,7 @@ impl<'a> TreeFormatter<'a> {
                     indent,
                     &format!("optional: {}", shared::type_inline(inner)),
                 );
-                if shared::type_needs_tree(inner) {
+                if inner.is_composite() {
                     self.write_type(inner, indent + 1);
                 }
             }
@@ -158,7 +158,7 @@ impl<'a> TreeFormatter<'a> {
             TpackValue::Struct(values) => {
                 shared::line(self.out, indent, "struct");
                 for (field_id, field_value) in values {
-                    let field = shared::find_struct_field(ty, *field_id);
+                    let field = ty.and_then(|ty| ty.struct_field(*field_id));
                     let field_ty = field.map(|field| &field.ty);
                     let name = field
                         .map(|field| field.name.as_str())
@@ -168,35 +168,39 @@ impl<'a> TreeFormatter<'a> {
                         indent + 1,
                         &format!("{name}#{field_id}: {}", shared::value_inline(field_value)),
                     );
-                    if shared::value_needs_tree(field_value) {
+                    if field_value.is_composite() {
                         self.write_value(field_value, field_ty, indent + 2);
                     }
                 }
             }
             TpackValue::List(values) => {
                 shared::line(self.out, indent, "list");
-                let element_ty = shared::list_element_type(ty);
+                let element_ty = ty.and_then(|ty| ty.list_element());
                 for (index, item) in values.iter().enumerate() {
                     shared::line(
                         self.out,
                         indent + 1,
                         &format!("[{index}]: {}", shared::value_inline(item)),
                     );
-                    if shared::value_needs_tree(item) {
+                    if item.is_composite() {
                         self.write_value(item, element_ty, indent + 2);
                     }
                 }
             }
             TpackValue::Map(entries) => {
                 shared::line(self.out, indent, "map");
-                let (key_ty, value_ty) = shared::map_types(ty);
+                let (key_ty, value_ty) = ty
+                    .and_then(|ty| ty.map_key_value())
+                    .map_or((None, None), |(key_ty, value_ty)| {
+                        (Some(key_ty), Some(value_ty))
+                    });
                 for ValueMapEntry { key, value } in entries {
                     shared::line(
                         self.out,
                         indent + 1,
                         &format!("key: {}", shared::value_inline(key)),
                     );
-                    if shared::value_needs_tree(key) {
+                    if key.is_composite() {
                         self.write_value(key, key_ty, indent + 2);
                     }
                     shared::line(
@@ -204,18 +208,21 @@ impl<'a> TreeFormatter<'a> {
                         indent + 1,
                         &format!("value: {}", shared::value_inline(value)),
                     );
-                    if shared::value_needs_tree(value) {
+                    if value.is_composite() {
                         self.write_value(value, value_ty, indent + 2);
                     }
                 }
             }
             TpackValue::Union { index, value } => {
                 shared::line(self.out, indent, &format!("union variant #{index}"));
-                self.write_value(value, shared::union_variant_type(ty, *index), indent + 1);
+                let variant_ty = ty
+                    .and_then(|ty| ty.union_variant(*index))
+                    .map(|variant| &variant.ty);
+                self.write_value(value, variant_ty, indent + 1);
             }
             TpackValue::Optional(Some(value)) => {
                 shared::line(self.out, indent, "some");
-                self.write_value(value, shared::optional_inner_type(ty), indent + 1);
+                self.write_value(value, ty.and_then(|ty| ty.optional_inner()), indent + 1);
             }
             TpackValue::Optional(None) => shared::line(self.out, indent, "none"),
             _ => shared::line(self.out, indent, &shared::value_inline(value)),

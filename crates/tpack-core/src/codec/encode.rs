@@ -314,9 +314,7 @@ impl<'a> ValueEncoder<'a> {
                 wire::write_bytes(self.out, value);
             }
             _ => {
-                return Err(Error::new(ErrorKind::TypeMismatch {
-                    expected: Self::type_label(ty),
-                }));
+                return Err(Error::type_mismatch(ty.type_label()));
             }
         }
         Ok(())
@@ -408,42 +406,5 @@ impl<'a> ValueEncoder<'a> {
             self.out.extend_from_slice(&value_bytes);
         }
         Ok(())
-    }
-
-    fn type_label(ty: &TypeDescriptor) -> &'static str {
-        match ty {
-            TypeDescriptor::Null => "Null",
-            TypeDescriptor::Bool => "Bool",
-            TypeDescriptor::I8 => "I8",
-            TypeDescriptor::I16 => "I16",
-            TypeDescriptor::I32 => "I32",
-            TypeDescriptor::I64 => "I64",
-            TypeDescriptor::U8 => "U8",
-            TypeDescriptor::U16 => "U16",
-            TypeDescriptor::U32 => "U32",
-            TypeDescriptor::U64 => "U64",
-            TypeDescriptor::F32 => "F32",
-            TypeDescriptor::F64 => "F64",
-            TypeDescriptor::Decimal => "Decimal",
-            TypeDescriptor::DecimalFixed { .. } => "Decimal(P,S)",
-            TypeDescriptor::String { .. } => "String",
-            TypeDescriptor::Bytes { .. } => "Bytes",
-            TypeDescriptor::Date => "Date",
-            TypeDescriptor::Time => "Time",
-            TypeDescriptor::DateTime => "DateTime",
-            TypeDescriptor::DateTimeTz => "DateTimeTZ",
-            TypeDescriptor::Timestamp(_) => "Timestamp(P)",
-            TypeDescriptor::Duration => "Duration",
-            TypeDescriptor::BigInt => "BigInt",
-            TypeDescriptor::BigUInt => "BigUInt",
-            TypeDescriptor::CalendarInterval => "CalendarInterval",
-            TypeDescriptor::Struct(_) => "Struct",
-            TypeDescriptor::List { .. } => "List",
-            TypeDescriptor::Map { .. } => "Map",
-            TypeDescriptor::Union(_) => "Union",
-            TypeDescriptor::Enum(_) => "Enum",
-            TypeDescriptor::Optional(_) => "Optional",
-            TypeDescriptor::Extension { .. } => "Extension",
-        }
     }
 }

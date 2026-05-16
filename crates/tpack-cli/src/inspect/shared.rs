@@ -1,7 +1,7 @@
 use std::fmt::Write;
 
 use tpack::{
-    CalendarInterval, Decimal, Duration, EnvelopeMode, Field, TimestampPrecision, TpackValue,
+    CalendarInterval, Decimal, Duration, EnvelopeMode, TimestampPrecision, TpackValue,
     TypeDescriptor,
 };
 
@@ -262,72 +262,6 @@ pub(super) fn value_inline(value: &TpackValue<'_>) -> String {
         TpackValue::Optional(Some(_)) => "some".to_string(),
         TpackValue::Optional(None) => "none".to_string(),
         TpackValue::Extension(value) => bytes_hex(value),
-    }
-}
-
-pub(super) fn type_needs_tree(ty: &TypeDescriptor) -> bool {
-    matches!(
-        ty,
-        TypeDescriptor::Struct(_)
-            | TypeDescriptor::List { .. }
-            | TypeDescriptor::Map { .. }
-            | TypeDescriptor::Union(_)
-            | TypeDescriptor::Enum(_)
-            | TypeDescriptor::Optional(_)
-    )
-}
-
-pub(super) fn value_needs_tree(value: &TpackValue<'_>) -> bool {
-    matches!(
-        value,
-        TpackValue::Struct(_)
-            | TpackValue::List(_)
-            | TpackValue::Map(_)
-            | TpackValue::Union { .. }
-            | TpackValue::Optional(Some(_))
-    )
-}
-
-pub(super) fn find_struct_field(ty: Option<&TypeDescriptor>, field_id: u64) -> Option<&Field> {
-    match ty {
-        Some(TypeDescriptor::Struct(fields)) => fields.iter().find(|field| field.id == field_id),
-        _ => None,
-    }
-}
-
-pub(super) fn list_element_type(ty: Option<&TypeDescriptor>) -> Option<&TypeDescriptor> {
-    match ty {
-        Some(TypeDescriptor::List { element, .. }) => Some(element.as_ref()),
-        _ => None,
-    }
-}
-
-pub(super) fn map_types(
-    ty: Option<&TypeDescriptor>,
-) -> (Option<&TypeDescriptor>, Option<&TypeDescriptor>) {
-    match ty {
-        Some(TypeDescriptor::Map { key, value, .. }) => (Some(key.as_ref()), Some(value.as_ref())),
-        _ => (None, None),
-    }
-}
-
-pub(super) fn union_variant_type(
-    ty: Option<&TypeDescriptor>,
-    index: u64,
-) -> Option<&TypeDescriptor> {
-    match ty {
-        Some(TypeDescriptor::Union(variants)) => usize::try_from(index)
-            .ok()
-            .and_then(|index| variants.get(index))
-            .map(|variant| &variant.ty),
-        _ => None,
-    }
-}
-
-pub(super) fn optional_inner_type(ty: Option<&TypeDescriptor>) -> Option<&TypeDescriptor> {
-    match ty {
-        Some(TypeDescriptor::Optional(inner)) => Some(inner.as_ref()),
-        _ => None,
     }
 }
 

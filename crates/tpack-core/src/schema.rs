@@ -113,6 +113,94 @@ pub enum TypeDescriptor {
     },
 }
 
+impl TypeDescriptor {
+    pub fn is_composite(&self) -> bool {
+        matches!(
+            self,
+            Self::Struct(_)
+                | Self::List { .. }
+                | Self::Map { .. }
+                | Self::Union(_)
+                | Self::Enum(_)
+                | Self::Optional(_)
+        )
+    }
+
+    pub fn struct_field(&self, field_id: u64) -> Option<&Field> {
+        match self {
+            Self::Struct(fields) => fields.iter().find(|field| field.id == field_id),
+            _ => None,
+        }
+    }
+
+    pub fn list_element(&self) -> Option<&TypeDescriptor> {
+        match self {
+            Self::List { element, .. } => Some(element.as_ref()),
+            _ => None,
+        }
+    }
+
+    pub fn map_key_value(&self) -> Option<(&TypeDescriptor, &TypeDescriptor)> {
+        match self {
+            Self::Map { key, value, .. } => Some((key.as_ref(), value.as_ref())),
+            _ => None,
+        }
+    }
+
+    pub fn union_variant(&self, index: u64) -> Option<&Variant> {
+        match self {
+            Self::Union(variants) => usize::try_from(index)
+                .ok()
+                .and_then(|index| variants.get(index)),
+            _ => None,
+        }
+    }
+
+    pub fn optional_inner(&self) -> Option<&TypeDescriptor> {
+        match self {
+            Self::Optional(inner) => Some(inner.as_ref()),
+            _ => None,
+        }
+    }
+
+    pub fn type_label(&self) -> &'static str {
+        match self {
+            Self::Null => "Null",
+            Self::Bool => "Bool",
+            Self::I8 => "I8",
+            Self::I16 => "I16",
+            Self::I32 => "I32",
+            Self::I64 => "I64",
+            Self::U8 => "U8",
+            Self::U16 => "U16",
+            Self::U32 => "U32",
+            Self::U64 => "U64",
+            Self::F32 => "F32",
+            Self::F64 => "F64",
+            Self::Decimal => "Decimal",
+            Self::DecimalFixed { .. } => "Decimal(P,S)",
+            Self::String { .. } => "String",
+            Self::Bytes { .. } => "Bytes",
+            Self::Date => "Date",
+            Self::Time => "Time",
+            Self::DateTime => "DateTime",
+            Self::DateTimeTz => "DateTimeTZ",
+            Self::Timestamp(_) => "Timestamp(P)",
+            Self::Duration => "Duration",
+            Self::BigInt => "BigInt",
+            Self::BigUInt => "BigUInt",
+            Self::CalendarInterval => "CalendarInterval",
+            Self::Struct(_) => "Struct",
+            Self::List { .. } => "List",
+            Self::Map { .. } => "Map",
+            Self::Union(_) => "Union",
+            Self::Enum(_) => "Enum",
+            Self::Optional(_) => "Optional",
+            Self::Extension { .. } => "Extension",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Field {
     pub id: u64,

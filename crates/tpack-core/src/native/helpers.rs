@@ -1,6 +1,6 @@
 use alloc::boxed::Box;
 
-use crate::{Error, ErrorKind, Result, Schema, TpackValue, TypeDescriptor};
+use crate::{Error, Result, Schema, TpackValue, TypeDescriptor};
 
 use super::FromTpackValue;
 
@@ -31,5 +31,5 @@ pub(super) fn string_schema() -> Schema {
 }
 
 pub(super) fn type_mismatch(expected: &'static str) -> Error {
-    Error::new(ErrorKind::TypeMismatch { expected })
+    Error::type_mismatch(expected)
 }

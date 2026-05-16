@@ -107,6 +107,10 @@ impl Error {
         self
     }
 
+    pub fn type_mismatch(expected: &'static str) -> Self {
+        Self::new(ErrorKind::TypeMismatch { expected })
+    }
+
     pub fn kind(&self) -> &ErrorKind {
         &self.kind
     }

@@ -49,7 +49,20 @@ cargo clippy --workspace --all-features --all-targets -- -D warnings
 cargo test --workspace --all-features
 ```
 
+## Internet-Draft
+
+The Internet-Draft is maintained in `drafts/draft-zhang-tpack-format-00.md`
+using `kramdown-rfc`.  Regenerate the rendered artifacts with:
+
+```bash
+make -C drafts
+```
+
+`make -C drafts` writes `drafts/draft-zhang-tpack-format-00.xml`,
+`drafts/draft-zhang-tpack-format-00.txt`, and
+`drafts/draft-zhang-tpack-format-00.html`.  Run `idnits` against the
+generated `.txt` before submission.
+
 ## Release Flow
 
 Releases are automated with `release-plz` and GitHub Actions. Release notes are accumulated in `CHANGELOG.md`, and the process is documented in `RELEASING.md`.
-

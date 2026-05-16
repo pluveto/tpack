@@ -20,6 +20,12 @@ Thumbs.db
 .release-plz/
 .tmp/
 
+# Internet-Draft generated artifacts
+drafts/*.xml
+drafts/*.html
+drafts/*.prepped.xml
+drafts/*.v2v3.xml
+
 # Coverage and test artifacts
 coverage/
 *.profraw

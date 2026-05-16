@@ -1,12 +1,10 @@
 name: CI
 
 on:
-  # Temporarily disabled while the workspace source tree is still being staged.
-  # Re-enable these triggers once the codebase can pass CI on push/PR.
-  # push:
-  #   branches:
-  #     - main
-  # pull_request:
+  push:
+    branches:
+      - main
+  pull_request:
   workflow_dispatch:
 
 permissions:

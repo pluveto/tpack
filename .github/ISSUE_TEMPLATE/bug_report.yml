@@ -1,0 +1,12 @@
+---
+name: bug report
+about: Report a bug
+title: ""
+labels: bug
+body:
+  - type: textarea
+    attributes:
+      label: What happened?
+      description: Describe the observed behavior and expected behavior.
+    validations:
+      required: true

@@ -21,6 +21,8 @@ automation. Please keep changes aligned with the active workspace layout and the
 git config core.hooksPath .githooks
 ```
 
+This enables the repository-managed `commit-msg` and `pre-commit` hooks.
+
 ## Local Checks
 
 Run the following before opening a pull request:

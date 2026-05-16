@@ -35,3 +35,9 @@ Supported types:
 - `ci`
 - `chore`
 
+## Pre-Commit Checks
+
+The `pre-commit` hook runs:
+
+- `cargo fmt --all --check`
+- `cargo clippy --workspace --all-features --all-targets -- -D warnings`

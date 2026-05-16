@@ -1,15 +1,17 @@
 [package]
 name = "tpack-cli"
-version = "0.1.0"
+description = "Command-line tooling for inspecting and canonicalizing TPACK payloads"
+version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+readme = "README.md"
 
 [[bin]]
 name = "tpack"
 path = "src/main.rs"
 
 [dependencies]
-lexopt = "0.3"
-tpack = { path = "../tpack", features = ["std"] }
+lexopt.workspace = true
+tpack = { workspace = true, features = ["std"] }

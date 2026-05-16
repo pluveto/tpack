@@ -8,10 +8,18 @@ members = [
 resolver = "3"
 
 [workspace.package]
+version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/pluveto/tpack"
 rust-version = "1.85"
+
+[workspace.dependencies]
+lexopt = "0.3"
+serde = { version = "1.0.228", default-features = false, features = ["std"] }
+tpack-core = { path = "crates/tpack-core", version = "0.1.0" }
+tpack = { path = "crates/tpack", version = "0.1.0" }
+tpack-macros = { path = "crates/tpack-macros", version = "0.1.0" }
 
 [workspace.lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(tpack_internal)'] }

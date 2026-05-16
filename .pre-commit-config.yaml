@@ -1,0 +1,19 @@
+exclude: |
+  (?x)^(
+    CHANGELOG.md
+  )$
+default_install_hook_types: ["pre-commit", "commit-msg"]
+repos:
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt --all --check
+        language: system
+        pass_filenames: false
+      - id: cargo-clippy
+        name: cargo clippy
+        entry: cargo clippy --workspace --all-features --all-targets -- -D warnings
+        language: system
+        pass_filenames: false
+

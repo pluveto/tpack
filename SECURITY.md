@@ -1,5 +1,6 @@
 # Security Policy
 
-## Reporting a Vulnerability
+Please report security issues privately and do not file a public issue for sensitive reports.
 
-Please report security issues by email to the maintainers. Do not open a public issue for sensitive reports.
+Security disclosures will be handled before public tracking or release.
+

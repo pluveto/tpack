@@ -1237,10 +1237,10 @@ fn validate_type_descriptor(ty: &TypeDescriptor, limits: &Limits, depth: usize) 
         return Err(Error::limit("schema depth"));
     }
     match ty {
-        TypeDescriptor::DecimalFixed { precision, scale } => {
-            if *precision == 0 || scale > precision {
-                return Err(Error::invalid("invalid Decimal(P,S) parameters"));
-            }
+        TypeDescriptor::DecimalFixed { precision, scale }
+            if *precision == 0 || scale > precision =>
+        {
+            return Err(Error::invalid("invalid Decimal(P,S) parameters"));
         }
         TypeDescriptor::Struct(fields) => {
             if fields.len() > limits.max_fields {

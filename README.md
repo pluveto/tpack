@@ -49,6 +49,8 @@ cargo clippy --workspace --all-features --all-targets -- -D warnings
 cargo test --workspace --all-features
 ```
 
+Additional repository checks are defined in `deny.toml`, `typos.toml`, and the GitHub Actions workflows.
+
 ## Internet-Draft
 
 The Internet-Draft is maintained in `drafts/draft-zhang-tpack-format-00.md`

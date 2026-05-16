@@ -8,22 +8,14 @@ mod tree;
 
 pub fn print_tree(message: &Message<'_>, section: InspectSection) {
     let mut out = String::new();
-    write_tree(message, section, &mut out);
+    tree::TreeFormatter::write(message, section, &mut out);
     print!("{out}");
 }
 
 pub fn print_json(message: &Message<'_>, section: InspectSection) {
     let mut out = String::new();
-    write_json(message, section, &mut out);
+    json::JsonFormatter::write(message, section, &mut out);
     print!("{out}");
-}
-
-fn write_tree(message: &Message<'_>, section: InspectSection, out: &mut String) {
-    tree::write(message, section, out);
-}
-
-fn write_json(message: &Message<'_>, section: InspectSection, out: &mut String) {
-    json::write(message, section, out);
 }
 
 #[cfg(test)]
@@ -69,7 +61,7 @@ mod tests {
     #[test]
     fn tree_inspect_formats_full_message() {
         let mut out = String::new();
-        write_tree(&sample_message(), InspectSection::All, &mut out);
+        tree::TreeFormatter::write(&sample_message(), InspectSection::All, &mut out);
 
         assert_eq!(
             out,
@@ -97,7 +89,7 @@ mod tests {
     #[test]
     fn json_inspect_can_format_value_only() {
         let mut out = String::new();
-        write_json(&sample_message(), InspectSection::Value, &mut out);
+        json::JsonFormatter::write(&sample_message(), InspectSection::Value, &mut out);
 
         assert_eq!(
             out,

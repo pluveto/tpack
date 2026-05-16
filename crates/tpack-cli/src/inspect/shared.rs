@@ -87,7 +87,6 @@ pub(super) fn decimal_json(out: &mut String, indent: usize, value: Decimal) {
     );
     line(out, indent, "}");
 }
-
 pub(super) fn duration_json(out: &mut String, indent: usize, value: Duration) {
     line(out, indent, "{");
     line(out, indent + 1, &format!("\"seconds\": {},", value.seconds));
@@ -236,7 +235,9 @@ pub(super) fn value_inline(value: &TpackValue<'_>) -> String {
         TpackValue::Bytes(value) => bytes_hex(value),
         TpackValue::Date(value) => value.to_string(),
         TpackValue::Time(value) => value.to_string(),
-        TpackValue::DateTime { days, nanos } => format!("datetime(days={days}, nanos={nanos})"),
+        TpackValue::DateTime { days, nanos } => {
+            format!("datetime(days={days}, nanos={nanos})")
+        }
         TpackValue::DateTimeTz {
             days,
             nanos,

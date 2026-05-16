@@ -1,12 +1,9 @@
-use alloc::{
-    borrow::Cow,
-    boxed::Box,
-    collections::{BTreeMap, BTreeSet},
-    string::String,
-    sync::Arc,
-    vec::Vec,
-};
+use alloc::{borrow::Cow, boxed::Box, collections::BTreeSet, string::String, sync::Arc, vec::Vec};
 use core::cmp::Ordering;
+
+mod encode;
+mod validate;
+mod wire;
 
 use crate::{
     CalendarInterval, Decimal, Duration, Envelope, EnvelopeMode, Error, ErrorKind, Field, Message,
@@ -198,7 +195,7 @@ impl<'de> Decoder<'de> {
 
     pub fn decode_schema(&mut self) -> Result<Schema> {
         let schema = Schema::new(self.decode_type_descriptor(0)?);
-        validate_schema(&schema, &self.options.limits)?;
+        validate::validate_schema(&schema, &self.options.limits)?;
         Ok(schema)
     }
 
@@ -333,14 +330,14 @@ impl<'de> Decoder<'de> {
                 TypeDescriptor::Struct(fields)
             }
             0x21 => {
-                let max_count = max_count_from_wire(self.read_uvarint()?);
+                let max_count = wire::max_count_from_wire(self.read_uvarint()?);
                 let element = Box::new(self.decode_type_descriptor(depth + 1)?);
                 TypeDescriptor::List { max_count, element }
             }
             0x22 => {
-                let max_count = max_count_from_wire(self.read_uvarint()?);
+                let max_count = wire::max_count_from_wire(self.read_uvarint()?);
                 let key = Box::new(self.decode_type_descriptor(depth + 1)?);
-                if !is_valid_map_key_type(&key) {
+                if !validate::is_valid_map_key_type(&key) {
                     return Err(Error::invalid("invalid map key type"));
                 }
                 let value = Box::new(self.decode_type_descriptor(depth + 1)?);
@@ -454,7 +451,7 @@ impl<'de> Decoder<'de> {
             }
             TypeDescriptor::DecimalFixed { precision, .. } => {
                 let coefficient = self.read_svarint()?;
-                if decimal_digits_abs(coefficient) > *precision {
+                if validate::decimal_digits_abs(coefficient) > *precision {
                     return Err(Error::invalid("Decimal(P,S) coefficient exceeds precision"));
                 }
                 TpackValue::DecimalFixed(coefficient)
@@ -502,7 +499,7 @@ impl<'de> Decoder<'de> {
             TypeDescriptor::Duration => {
                 let seconds = self.read_svarint()?;
                 let nanos = self.read_svarint()?;
-                validate_duration(seconds, nanos)?;
+                validate::validate_duration(seconds, nanos)?;
                 TpackValue::Duration(Duration { seconds, nanos })
             }
             TypeDescriptor::BigInt => TpackValue::BigInt(self.read_svarint()?),
@@ -529,7 +526,7 @@ impl<'de> Decoder<'de> {
             }
             TypeDescriptor::List { max_count, element } => {
                 let count = self.read_count("list count")?;
-                validate_count("list count", count, *max_count, &self.options.limits)?;
+                validate::validate_count("list count", count, *max_count, &self.options.limits)?;
                 let mut values = Vec::with_capacity(count);
                 for index in 0..count {
                     let value = self
@@ -545,7 +542,7 @@ impl<'de> Decoder<'de> {
                 value,
             } => {
                 let count = self.read_count("map count")?;
-                validate_count("map count", count, *max_count, &self.options.limits)?;
+                validate::validate_count("map count", count, *max_count, &self.options.limits)?;
                 let mut entries = Vec::with_capacity(count);
                 let mut seen_key_bytes = if self.options.canonical.is_strict() {
                     None
@@ -557,7 +554,7 @@ impl<'de> Decoder<'de> {
                     let key_start = self.pos;
                     let key_value = self.decode_value_for(key, depth + 1)?;
                     let raw_key_bytes = &self.input[key_start..self.pos];
-                    reject_nan_map_key(&key_value)?;
+                    validate::reject_nan_map_key(&key_value)?;
                     if self.options.canonical.is_strict() {
                         // Strict canonical input means the bytes just consumed are
                         // already the canonical key representation. Compare slices
@@ -576,7 +573,7 @@ impl<'de> Decoder<'de> {
                         last_key_bytes = Some(raw_key_bytes);
                     }
                     if !self.options.canonical.is_strict() {
-                        let canonical_key = encode_value_with_options(
+                        let canonical_key = encode::encode_value_with_options(
                             key,
                             &key_value,
                             EncodeOptions {
@@ -689,7 +686,7 @@ impl<'de> Decoder<'de> {
             value |= payload << (7 * i);
             if byte & 0x80 == 0 {
                 let encoded_len = self.pos - start;
-                if self.options.canonical.is_strict() && encoded_len != uvarint_len(value) {
+                if self.options.canonical.is_strict() && encoded_len != wire::uvarint_len(value) {
                     return Err(Error::new(ErrorKind::OverlongVarint));
                 }
                 return Ok(value);
@@ -792,14 +789,14 @@ impl Encoder {
         mode: EnvelopeMode,
         schema_id: Option<&[u8]>,
     ) -> Result<()> {
-        validate_schema(schema, &self.options.limits)?;
-        let schema_bytes = encode_schema_with_options(schema, self.options)?;
+        validate::validate_schema(schema, &self.options.limits)?;
+        let schema_bytes = encode::encode_schema_with_options(schema, self.options)?;
         self.out.extend_from_slice(&MAGIC);
         self.out.push(VERSION);
         self.out.push(mode.tag());
         match mode {
             EnvelopeMode::FullSchema => {
-                write_uvarint(&mut self.out, schema_bytes.len() as u64);
+                wire::write_uvarint(&mut self.out, schema_bytes.len() as u64);
                 self.out.extend_from_slice(&schema_bytes);
             }
             EnvelopeMode::FullSchemaWithId => {
@@ -807,9 +804,9 @@ impl Encoder {
                 if schema_id.len() > self.options.limits.max_schema_id_len {
                     return Err(Error::new(ErrorKind::InvalidSchemaId));
                 }
-                write_uvarint(&mut self.out, schema_id.len() as u64);
+                wire::write_uvarint(&mut self.out, schema_id.len() as u64);
                 self.out.extend_from_slice(schema_id);
-                write_uvarint(&mut self.out, schema_bytes.len() as u64);
+                wire::write_uvarint(&mut self.out, schema_bytes.len() as u64);
                 self.out.extend_from_slice(&schema_bytes);
             }
             EnvelopeMode::SchemaRef => {
@@ -817,21 +814,21 @@ impl Encoder {
                 if schema_id.is_empty() || schema_id.len() > self.options.limits.max_schema_id_len {
                     return Err(Error::new(ErrorKind::InvalidSchemaId));
                 }
-                write_uvarint(&mut self.out, schema_id.len() as u64);
+                wire::write_uvarint(&mut self.out, schema_id.len() as u64);
                 self.out.extend_from_slice(schema_id);
             }
         }
-        encode_value_into(&mut self.out, &schema.root, value, self.options)?;
+        encode::ValueEncoder::new(&mut self.out, self.options).write_value(&schema.root, value)?;
         Ok(())
     }
 
     pub fn encode_schema(&mut self, schema: &Schema) -> Result<()> {
-        validate_schema(schema, &self.options.limits)?;
-        encode_type_descriptor_into(&mut self.out, &schema.root, self.options)
+        validate::validate_schema(schema, &self.options.limits)?;
+        encode::SchemaEncoder::new(&mut self.out).write_type_descriptor(&schema.root)
     }
 
     pub fn encode_value(&mut self, schema: &Schema, value: &TpackValue<'_>) -> Result<()> {
-        encode_value_into(&mut self.out, &schema.root, value, self.options)
+        encode::ValueEncoder::new(&mut self.out, self.options).write_value(&schema.root, value)
     }
 }
 
@@ -857,607 +854,11 @@ pub fn encode_message(
 }
 
 pub fn encode_schema(schema: &Schema) -> Result<Vec<u8>> {
-    encode_schema_with_options(schema, EncodeOptions::default())
+    encode::encode_schema_with_options(schema, EncodeOptions::default())
 }
 
 pub fn encode_value(schema: &Schema, value: &TpackValue<'_>) -> Result<Vec<u8>> {
-    encode_value_with_options(&schema.root, value, EncodeOptions::default())
-}
-
-pub(crate) fn encode_schema_with_options(
-    schema: &Schema,
-    options: EncodeOptions,
-) -> Result<Vec<u8>> {
-    validate_schema(schema, &options.limits)?;
-    let mut out = Vec::new();
-    encode_type_descriptor_into(&mut out, &schema.root, options)?;
-    Ok(out)
-}
-
-pub(crate) fn encode_value_with_options(
-    ty: &TypeDescriptor,
-    value: &TpackValue<'_>,
-    options: EncodeOptions,
-) -> Result<Vec<u8>> {
-    let mut out = Vec::new();
-    encode_value_into(&mut out, ty, value, options)?;
-    Ok(out)
-}
-
-fn encode_type_descriptor_into(
-    out: &mut Vec<u8>,
-    ty: &TypeDescriptor,
-    _options: EncodeOptions,
-) -> Result<()> {
-    match ty {
-        TypeDescriptor::Null => out.push(0x00),
-        TypeDescriptor::Bool => out.push(0x01),
-        TypeDescriptor::I8 => out.push(0x02),
-        TypeDescriptor::I16 => out.push(0x03),
-        TypeDescriptor::I32 => out.push(0x04),
-        TypeDescriptor::I64 => out.push(0x05),
-        TypeDescriptor::U8 => out.push(0x06),
-        TypeDescriptor::U16 => out.push(0x07),
-        TypeDescriptor::U32 => out.push(0x08),
-        TypeDescriptor::U64 => out.push(0x09),
-        TypeDescriptor::F32 => out.push(0x0A),
-        TypeDescriptor::F64 => out.push(0x0B),
-        TypeDescriptor::Decimal => out.push(0x0C),
-        TypeDescriptor::DecimalFixed { precision, scale } => {
-            out.push(0x0D);
-            write_uvarint(out, *precision);
-            write_uvarint(out, *scale);
-        }
-        TypeDescriptor::String { max_len: Some(max) } => {
-            out.push(0x0E);
-            write_uvarint(out, *max);
-        }
-        TypeDescriptor::String { max_len: None } => out.push(0x0F),
-        TypeDescriptor::Bytes { max_len: Some(max) } => {
-            out.push(0x10);
-            write_uvarint(out, *max);
-        }
-        TypeDescriptor::Bytes { max_len: None } => out.push(0x11),
-        TypeDescriptor::Date => out.push(0x12),
-        TypeDescriptor::Time => out.push(0x13),
-        TypeDescriptor::DateTime => out.push(0x14),
-        TypeDescriptor::DateTimeTz => out.push(0x15),
-        TypeDescriptor::Timestamp(precision) => {
-            out.push(0x16);
-            out.push(precision.tag());
-        }
-        TypeDescriptor::Duration => out.push(0x17),
-        TypeDescriptor::BigInt => out.push(0x18),
-        TypeDescriptor::BigUInt => out.push(0x19),
-        TypeDescriptor::CalendarInterval => out.push(0x1A),
-        TypeDescriptor::Struct(fields) => {
-            out.push(0x20);
-            write_uvarint(out, fields.len() as u64);
-            for field in fields {
-                write_uvarint(out, field.id);
-                write_text(out, &field.name);
-                write_uvarint(out, 0);
-                encode_type_descriptor_into(out, &field.ty, _options)?;
-            }
-        }
-        TypeDescriptor::List { max_count, element } => {
-            out.push(0x21);
-            write_uvarint(out, max_count.unwrap_or(0));
-            encode_type_descriptor_into(out, element, _options)?;
-        }
-        TypeDescriptor::Map {
-            max_count,
-            key,
-            value,
-        } => {
-            out.push(0x22);
-            write_uvarint(out, max_count.unwrap_or(0));
-            encode_type_descriptor_into(out, key, _options)?;
-            encode_type_descriptor_into(out, value, _options)?;
-        }
-        TypeDescriptor::Union(variants) => {
-            out.push(0x23);
-            write_uvarint(out, variants.len() as u64);
-            for variant in variants {
-                write_text(out, &variant.name);
-                encode_type_descriptor_into(out, &variant.ty, _options)?;
-            }
-        }
-        TypeDescriptor::Enum(symbols) => {
-            out.push(0x24);
-            write_uvarint(out, symbols.len() as u64);
-            for symbol in symbols {
-                write_text(out, symbol);
-            }
-        }
-        TypeDescriptor::Optional(inner) => {
-            out.push(0x25);
-            encode_type_descriptor_into(out, inner, _options)?;
-        }
-        TypeDescriptor::Extension {
-            authority,
-            type_name,
-            schema_params,
-        } => {
-            out.push(0x26);
-            write_text(out, authority);
-            write_text(out, type_name);
-            write_bytes(out, schema_params);
-        }
-    }
-    Ok(())
-}
-
-fn encode_value_into(
-    out: &mut Vec<u8>,
-    ty: &TypeDescriptor,
-    value: &TpackValue<'_>,
-    options: EncodeOptions,
-) -> Result<()> {
-    match (ty, value) {
-        (TypeDescriptor::Null, TpackValue::Null) => {}
-        (TypeDescriptor::Bool, TpackValue::Bool(value)) => out.push(u8::from(*value)),
-        (TypeDescriptor::I8, TpackValue::I8(value)) => out.extend_from_slice(&value.to_be_bytes()),
-        (TypeDescriptor::I16, TpackValue::I16(value)) => {
-            out.extend_from_slice(&value.to_be_bytes())
-        }
-        (TypeDescriptor::I32, TpackValue::I32(value)) => {
-            out.extend_from_slice(&value.to_be_bytes())
-        }
-        (TypeDescriptor::I64, TpackValue::I64(value)) => {
-            out.extend_from_slice(&value.to_be_bytes())
-        }
-        (TypeDescriptor::U8, TpackValue::U8(value)) => out.push(*value),
-        (TypeDescriptor::U16, TpackValue::U16(value)) => {
-            out.extend_from_slice(&value.to_be_bytes())
-        }
-        (TypeDescriptor::U32, TpackValue::U32(value)) => {
-            out.extend_from_slice(&value.to_be_bytes())
-        }
-        (TypeDescriptor::U64, TpackValue::U64(value)) => {
-            out.extend_from_slice(&value.to_be_bytes())
-        }
-        (TypeDescriptor::F32, TpackValue::F32(value)) => {
-            let bits = if options.canonical.is_strict() && value.is_nan() {
-                0x7FC0_0000
-            } else {
-                value.to_bits()
-            };
-            out.extend_from_slice(&bits.to_be_bytes());
-        }
-        (TypeDescriptor::F64, TpackValue::F64(value)) => {
-            let bits = if options.canonical.is_strict() && value.is_nan() {
-                0x7FF8_0000_0000_0000
-            } else {
-                value.to_bits()
-            };
-            out.extend_from_slice(&bits.to_be_bytes());
-        }
-        (TypeDescriptor::Decimal, TpackValue::Decimal(value)) => {
-            write_svarint(out, value.scale);
-            write_svarint(out, value.coefficient);
-        }
-        (TypeDescriptor::DecimalFixed { precision, .. }, TpackValue::DecimalFixed(value)) => {
-            if decimal_digits_abs(*value) > *precision {
-                return Err(Error::invalid("Decimal(P,S) coefficient exceeds precision"));
-            }
-            write_svarint(out, *value);
-        }
-        (TypeDescriptor::String { max_len }, TpackValue::String(value)) => {
-            validate_byte_len("string length", value.len(), *max_len, &options.limits)?;
-            write_text(out, value);
-        }
-        (TypeDescriptor::Bytes { max_len }, TpackValue::Bytes(value)) => {
-            validate_byte_len("bytes length", value.len(), *max_len, &options.limits)?;
-            write_bytes(out, value);
-        }
-        (TypeDescriptor::Date, TpackValue::Date(value)) => write_svarint(out, *value),
-        (TypeDescriptor::Time, TpackValue::Time(value)) => {
-            if *value >= NANOS_PER_DAY {
-                return Err(Error::invalid("time value exceeds nanos-per-day"));
-            }
-            write_uvarint(out, *value);
-        }
-        (TypeDescriptor::DateTime, TpackValue::DateTime { days, nanos }) => {
-            if *nanos >= NANOS_PER_DAY {
-                return Err(Error::invalid("datetime time value exceeds nanos-per-day"));
-            }
-            write_svarint(out, *days);
-            write_uvarint(out, *nanos);
-        }
-        (
-            TypeDescriptor::DateTimeTz,
-            TpackValue::DateTimeTz {
-                days,
-                nanos,
-                timezone,
-            },
-        ) => {
-            if *nanos >= NANOS_PER_DAY {
-                return Err(Error::invalid(
-                    "datetime-tz time value exceeds nanos-per-day",
-                ));
-            }
-            write_svarint(out, *days);
-            write_uvarint(out, *nanos);
-            write_text(out, timezone);
-        }
-        (TypeDescriptor::Timestamp(_), TpackValue::Timestamp(value)) => write_svarint(out, *value),
-        (TypeDescriptor::Duration, TpackValue::Duration(value)) => {
-            validate_duration(value.seconds, value.nanos)?;
-            write_svarint(out, value.seconds);
-            write_svarint(out, value.nanos);
-        }
-        (TypeDescriptor::BigInt, TpackValue::BigInt(value)) => write_svarint(out, *value),
-        (TypeDescriptor::BigUInt, TpackValue::BigUInt(value)) => write_uvarint(out, *value),
-        (TypeDescriptor::CalendarInterval, TpackValue::CalendarInterval(value)) => {
-            write_svarint(out, value.months);
-            write_svarint(out, value.days);
-            write_svarint(out, value.nanos);
-        }
-        (TypeDescriptor::Struct(fields), TpackValue::Struct(values)) => {
-            if values.len() == fields.len()
-                && fields
-                    .iter()
-                    .zip(values.iter())
-                    .all(|(field, (id, _))| field.id == *id)
-            {
-                for (field, (_, field_value)) in fields.iter().zip(values) {
-                    encode_value_into(out, &field.ty, field_value, options)?;
-                }
-                return Ok(());
-            }
-
-            let known_field_ids: BTreeSet<u64> = fields.iter().map(|field| field.id).collect();
-            let mut provided_values = BTreeMap::new();
-            for (id, field_value) in values {
-                if !known_field_ids.contains(id) {
-                    continue;
-                }
-                if provided_values.insert(*id, field_value).is_some() {
-                    return Err(Error::invalid("duplicate struct field value"));
-                }
-            }
-
-            for field in fields {
-                let field_value = provided_values
-                    .get(&field.id)
-                    .copied()
-                    .ok_or(Error::invalid("missing struct field value"))?;
-                encode_value_into(out, &field.ty, field_value, options)?;
-            }
-        }
-        (TypeDescriptor::List { max_count, element }, TpackValue::List(values)) => {
-            validate_count("list count", values.len(), *max_count, &options.limits)?;
-            write_uvarint(out, values.len() as u64);
-            for value in values {
-                encode_value_into(out, element, value, options)?;
-            }
-        }
-        (
-            TypeDescriptor::Map {
-                max_count,
-                key,
-                value,
-            },
-            TpackValue::Map(entries),
-        ) => {
-            validate_count("map count", entries.len(), *max_count, &options.limits)?;
-            let mut encoded_entries = Vec::with_capacity(entries.len());
-            for entry in entries {
-                reject_nan_map_key(&entry.key)?;
-                let key_bytes = encode_value_with_options(
-                    key,
-                    &entry.key,
-                    EncodeOptions {
-                        canonical: CanonicalMode::Strict,
-                        limits: options.limits,
-                    },
-                )?;
-                let mut value_bytes = Vec::new();
-                encode_value_into(&mut value_bytes, value, &entry.value, options)?;
-                encoded_entries.push((key_bytes, value_bytes));
-            }
-            encoded_entries.sort_by(|a, b| a.0.cmp(&b.0));
-            for pair in encoded_entries.windows(2) {
-                if pair[0].0 == pair[1].0 {
-                    return Err(Error::invalid("duplicate map key"));
-                }
-            }
-            if !options.canonical.is_strict() {
-                encoded_entries.clear();
-                for entry in entries {
-                    let mut key_bytes = Vec::new();
-                    encode_value_into(&mut key_bytes, key, &entry.key, options)?;
-                    let mut value_bytes = Vec::new();
-                    encode_value_into(&mut value_bytes, value, &entry.value, options)?;
-                    encoded_entries.push((key_bytes, value_bytes));
-                }
-            }
-            write_uvarint(out, entries.len() as u64);
-            for (key_bytes, value_bytes) in encoded_entries {
-                out.extend_from_slice(&key_bytes);
-                out.extend_from_slice(&value_bytes);
-            }
-        }
-        (TypeDescriptor::Union(variants), TpackValue::Union { index, value, .. }) => {
-            let variant = variants
-                .get(usize::try_from(*index).map_err(|_| Error::limit("variant index"))?)
-                .ok_or(Error::invalid("union variant index out of range"))?;
-            write_uvarint(out, *index);
-            encode_value_into(out, &variant.ty, value, options)?;
-        }
-        (TypeDescriptor::Enum(symbols), TpackValue::Enum(index)) => {
-            if usize::try_from(*index)
-                .ok()
-                .and_then(|index| symbols.get(index))
-                .is_none()
-            {
-                return Err(Error::invalid("enum symbol index out of range"));
-            }
-            write_uvarint(out, *index);
-        }
-        (TypeDescriptor::Optional(_), TpackValue::Optional(None)) => out.push(0),
-        (TypeDescriptor::Optional(inner), TpackValue::Optional(Some(value))) => {
-            out.push(1);
-            encode_value_into(out, inner, value, options)?;
-        }
-        (TypeDescriptor::Extension { .. }, TpackValue::Extension(value)) => {
-            if value.len() > options.limits.max_extension_len {
-                return Err(Error::limit("extension payload size"));
-            }
-            write_bytes(out, value);
-        }
-        _ => {
-            return Err(Error::new(ErrorKind::TypeMismatch {
-                expected: type_name(ty),
-            }));
-        }
-    }
-    Ok(())
-}
-
-fn write_uvarint(out: &mut Vec<u8>, mut value: u64) {
-    loop {
-        let mut byte = (value & 0x7F) as u8;
-        value >>= 7;
-        if value != 0 {
-            byte |= 0x80;
-        }
-        out.push(byte);
-        if value == 0 {
-            break;
-        }
-    }
-}
-
-fn write_svarint(out: &mut Vec<u8>, value: i64) {
-    let raw = ((value as u64) << 1) ^ ((value >> 63) as u64);
-    write_uvarint(out, raw);
-}
-
-fn write_text(out: &mut Vec<u8>, value: &str) {
-    write_bytes(out, value.as_bytes());
-}
-
-fn write_bytes(out: &mut Vec<u8>, value: &[u8]) {
-    write_uvarint(out, value.len() as u64);
-    out.extend_from_slice(value);
-}
-
-fn uvarint_len(mut value: u64) -> usize {
-    let mut len = 1;
-    while value >= 0x80 {
-        value >>= 7;
-        len += 1;
-    }
-    len
-}
-
-fn max_count_from_wire(value: u64) -> Option<u64> {
-    if value == 0 { None } else { Some(value) }
-}
-
-fn validate_schema(schema: &Schema, limits: &Limits) -> Result<()> {
-    validate_type_descriptor(&schema.root, limits, 0)
-}
-
-fn validate_type_descriptor(ty: &TypeDescriptor, limits: &Limits, depth: usize) -> Result<()> {
-    if depth > limits.max_depth {
-        return Err(Error::limit("schema depth"));
-    }
-    match ty {
-        TypeDescriptor::DecimalFixed { precision, scale }
-            if *precision == 0 || scale > precision =>
-        {
-            return Err(Error::invalid("invalid Decimal(P,S) parameters"));
-        }
-        TypeDescriptor::Struct(fields) => {
-            if fields.len() > limits.max_fields {
-                return Err(Error::limit("struct field count"));
-            }
-            let mut seen_ids = BTreeSet::new();
-            let mut seen_names = BTreeSet::new();
-            for field in fields {
-                if field.id == 0 {
-                    return Err(Error::invalid("struct FieldId must be greater than zero"));
-                }
-                if field.name.is_empty() {
-                    return Err(Error::invalid("struct field name must be non-empty"));
-                }
-                if !seen_ids.insert(field.id) || !seen_names.insert(field.name.as_str()) {
-                    return Err(Error::invalid("duplicate struct field identifier or name"));
-                }
-                validate_type_descriptor(&field.ty, limits, depth + 1)?;
-            }
-        }
-        TypeDescriptor::List { element, .. } => {
-            validate_type_descriptor(element, limits, depth + 1)?
-        }
-        TypeDescriptor::Map { key, value, .. } => {
-            if !is_valid_map_key_type(key) {
-                return Err(Error::invalid("invalid map key type"));
-            }
-            validate_type_descriptor(key, limits, depth + 1)?;
-            validate_type_descriptor(value, limits, depth + 1)?;
-        }
-        TypeDescriptor::Union(variants) => {
-            if variants.len() > limits.max_variants {
-                return Err(Error::limit("union variant count"));
-            }
-            let mut seen_names = BTreeSet::new();
-            for variant in variants {
-                if variant.name.is_empty() {
-                    return Err(Error::invalid("union variant name must be non-empty"));
-                }
-                if !seen_names.insert(variant.name.as_str()) {
-                    return Err(Error::invalid("duplicate union variant name"));
-                }
-                validate_type_descriptor(&variant.ty, limits, depth + 1)?;
-            }
-        }
-        TypeDescriptor::Enum(symbols) => {
-            if symbols.len() > limits.max_variants {
-                return Err(Error::limit("enum symbol count"));
-            }
-            let mut seen_symbols = BTreeSet::new();
-            for symbol in symbols {
-                if symbol.is_empty() {
-                    return Err(Error::invalid("enum symbol must be non-empty"));
-                }
-                if !seen_symbols.insert(symbol.as_str()) {
-                    return Err(Error::invalid("duplicate enum symbol"));
-                }
-            }
-        }
-        TypeDescriptor::Optional(inner) => validate_type_descriptor(inner, limits, depth + 1)?,
-        _ => {}
-    }
-    Ok(())
-}
-
-fn is_valid_map_key_type(ty: &TypeDescriptor) -> bool {
-    !matches!(
-        ty,
-        TypeDescriptor::Null
-            | TypeDescriptor::Optional(_)
-            | TypeDescriptor::List { .. }
-            | TypeDescriptor::Map { .. }
-            | TypeDescriptor::Struct(_)
-            | TypeDescriptor::Union(_)
-            | TypeDescriptor::Extension { .. }
-    )
-}
-
-fn reject_nan_map_key(value: &TpackValue<'_>) -> Result<()> {
-    match value {
-        TpackValue::F32(value) if value.is_nan() => Err(Error::invalid("NaN map key")),
-        TpackValue::F64(value) if value.is_nan() => Err(Error::invalid("NaN map key")),
-        _ => Ok(()),
-    }
-}
-
-fn validate_duration(seconds: i64, nanos: i64) -> Result<()> {
-    if nanos <= -1_000_000_000 || nanos >= 1_000_000_000 {
-        return Err(Error::invalid("duration nanos out of range"));
-    }
-    if seconds != 0
-        && nanos != 0
-        && ((seconds.is_positive() && nanos.is_negative())
-            || (seconds.is_negative() && nanos.is_positive()))
-    {
-        return Err(Error::invalid("duration seconds and nanos signs differ"));
-    }
-    Ok(())
-}
-
-fn validate_count(
-    name: &'static str,
-    actual: usize,
-    schema_max: Option<u64>,
-    limits: &Limits,
-) -> Result<()> {
-    if let Some(max) = schema_max {
-        if u64::try_from(actual).map_or(true, |actual| actual > max) {
-            return Err(Error::limit(name));
-        }
-    }
-    if actual > limits.max_collection_len {
-        return Err(Error::limit(name));
-    }
-    Ok(())
-}
-
-fn validate_byte_len(
-    name: &'static str,
-    len: usize,
-    schema_max: Option<u64>,
-    limits: &Limits,
-) -> Result<()> {
-    if let Some(max) = schema_max {
-        if u64::try_from(len).map_or(true, |len| len > max) {
-            return Err(Error::limit(name));
-        }
-    }
-    let limit = match name {
-        "string length" => limits.max_string_len,
-        _ => limits.max_bytes_len,
-    };
-    if len > limit {
-        return Err(Error::limit(name));
-    }
-    Ok(())
-}
-
-fn decimal_digits_abs(value: i64) -> u64 {
-    let mut value = if value < 0 {
-        -(value as i128)
-    } else {
-        value as i128
-    };
-    let mut digits = 1;
-    while value >= 10 {
-        value /= 10;
-        digits += 1;
-    }
-    digits
-}
-
-fn type_name(ty: &TypeDescriptor) -> &'static str {
-    match ty {
-        TypeDescriptor::Null => "Null",
-        TypeDescriptor::Bool => "Bool",
-        TypeDescriptor::I8 => "I8",
-        TypeDescriptor::I16 => "I16",
-        TypeDescriptor::I32 => "I32",
-        TypeDescriptor::I64 => "I64",
-        TypeDescriptor::U8 => "U8",
-        TypeDescriptor::U16 => "U16",
-        TypeDescriptor::U32 => "U32",
-        TypeDescriptor::U64 => "U64",
-        TypeDescriptor::F32 => "F32",
-        TypeDescriptor::F64 => "F64",
-        TypeDescriptor::Decimal => "Decimal",
-        TypeDescriptor::DecimalFixed { .. } => "Decimal(P,S)",
-        TypeDescriptor::String { .. } => "String",
-        TypeDescriptor::Bytes { .. } => "Bytes",
-        TypeDescriptor::Date => "Date",
-        TypeDescriptor::Time => "Time",
-        TypeDescriptor::DateTime => "DateTime",
-        TypeDescriptor::DateTimeTz => "DateTimeTZ",
-        TypeDescriptor::Timestamp(_) => "Timestamp(P)",
-        TypeDescriptor::Duration => "Duration",
-        TypeDescriptor::BigInt => "BigInt",
-        TypeDescriptor::BigUInt => "BigUInt",
-        TypeDescriptor::CalendarInterval => "CalendarInterval",
-        TypeDescriptor::Struct(_) => "Struct",
-        TypeDescriptor::List { .. } => "List",
-        TypeDescriptor::Map { .. } => "Map",
-        TypeDescriptor::Union(_) => "Union",
-        TypeDescriptor::Enum(_) => "Enum",
-        TypeDescriptor::Optional(_) => "Optional",
-        TypeDescriptor::Extension { .. } => "Extension",
-    }
+    encode::encode_value_with_options(&schema.root, value, EncodeOptions::default())
 }
 
 #[cfg(test)]

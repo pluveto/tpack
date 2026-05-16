@@ -39,9 +39,10 @@ impl<'a, 'de> StructTupleAccess<'a, 'de> {
         fields: &'a [Field],
         values: Vec<(u64, TpackValue<'de>)>,
     ) -> Result<Self, Error> {
+        let matcher = StructFieldMatcher::new(fields);
         Ok(Self {
             fields,
-            values: struct_values_by_schema(fields, values)?,
+            values: matcher.values_by_schema(values)?,
             index: 0,
         })
     }
@@ -62,9 +63,10 @@ impl<'a, 'de> StructAccess<'a, 'de> {
         fields: &'a [Field],
         values: Vec<(u64, TpackValue<'de>)>,
     ) -> Result<Self, Error> {
+        let matcher = StructFieldMatcher::new(fields);
         Ok(Self {
             fields,
-            entries: struct_entries_by_id(fields, values)?.into_iter(),
+            entries: matcher.entries_by_id(values)?.into_iter(),
             pending_value: None,
         })
     }
@@ -125,39 +127,53 @@ pub(super) struct VariantValueAccess<'a, 'de> {
     payload: Option<TpackValue<'de>>,
 }
 
-fn struct_entries_by_id<'de>(
-    fields: &[Field],
-    values: Vec<(u64, TpackValue<'de>)>,
-) -> Result<Vec<(usize, TpackValue<'de>)>, Error> {
-    let field_indices = fields
-        .iter()
-        .enumerate()
-        .map(|(index, field)| (field.id, index))
-        .collect::<HashMap<_, _>>();
-    let mut seen = vec![false; fields.len()];
-    let mut entries = Vec::with_capacity(values.len().min(fields.len()));
-    for (id, value) in values {
-        let Some(&index) = field_indices.get(&id) else {
-            continue;
-        };
-        if seen[index] {
-            return Err(Error::invalid("duplicate struct field value"));
-        }
-        seen[index] = true;
-        entries.push((index, value));
-    }
-    Ok(entries)
+struct StructFieldMatcher<'a> {
+    fields: &'a [Field],
+    field_indices: HashMap<u64, usize>,
 }
 
-fn struct_values_by_schema<'de>(
-    fields: &[Field],
-    values: Vec<(u64, TpackValue<'de>)>,
-) -> Result<Vec<Option<TpackValue<'de>>>, Error> {
-    let mut by_schema = (0..fields.len()).map(|_| None).collect::<Vec<_>>();
-    for (index, value) in struct_entries_by_id(fields, values)? {
-        by_schema[index] = Some(value);
+impl<'a> StructFieldMatcher<'a> {
+    fn new(fields: &'a [Field]) -> Self {
+        let field_indices = fields
+            .iter()
+            .enumerate()
+            .map(|(index, field)| (field.id, index))
+            .collect();
+        Self {
+            fields,
+            field_indices,
+        }
     }
-    Ok(by_schema)
+
+    fn entries_by_id<'de>(
+        &self,
+        values: Vec<(u64, TpackValue<'de>)>,
+    ) -> Result<Vec<(usize, TpackValue<'de>)>, Error> {
+        let mut seen = vec![false; self.fields.len()];
+        let mut entries = Vec::with_capacity(values.len().min(self.fields.len()));
+        for (id, value) in values {
+            let Some(&index) = self.field_indices.get(&id) else {
+                continue;
+            };
+            if seen[index] {
+                return Err(Error::invalid("duplicate struct field value"));
+            }
+            seen[index] = true;
+            entries.push((index, value));
+        }
+        Ok(entries)
+    }
+
+    fn values_by_schema<'de>(
+        &self,
+        values: Vec<(u64, TpackValue<'de>)>,
+    ) -> Result<Vec<Option<TpackValue<'de>>>, Error> {
+        let mut by_schema = (0..self.fields.len()).map(|_| None).collect::<Vec<_>>();
+        for (index, value) in self.entries_by_id(values)? {
+            by_schema[index] = Some(value);
+        }
+        Ok(by_schema)
+    }
 }
 
 impl<'de, 'a> SeqAccess<'de> for SeqValueAccess<'a, 'de> {

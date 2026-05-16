@@ -9,4 +9,4 @@ fi
 
 cargo fmt --all --check
 cargo clippy --workspace --all-features --all-targets -- -D warnings
-
+scripts/check-msrv.sh

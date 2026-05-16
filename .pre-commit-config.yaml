@@ -16,4 +16,8 @@ repos:
         entry: cargo clippy --workspace --all-features --all-targets -- -D warnings
         language: system
         pass_filenames: false
-
+      - id: cargo-msrv
+        name: cargo msrv test
+        entry: scripts/check-msrv.sh
+        language: system
+        pass_filenames: false

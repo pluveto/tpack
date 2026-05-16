@@ -1,0 +1,22 @@
+[package]
+name = "tpack"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["std", "derive"]
+std = ["tpack-core/std"]
+derive = ["dep:tpack-macros"]
+serde_support = ["std", "dep:serde"]
+
+[dependencies]
+tpack-core = { path = "../tpack-core" }
+tpack-macros = { path = "../tpack-macros", optional = true }
+serde = { version = "1.0.228", optional = true, default-features = false, features = ["std"] }
+
+[dev-dependencies]
+serde = { version = "1.0.228", features = ["derive"] }
+tpack-macros = { path = "../tpack-macros" }

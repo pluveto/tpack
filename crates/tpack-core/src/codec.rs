@@ -261,9 +261,7 @@ impl<'de> Decoder<'de> {
     ) -> Result<()> {
         let embedded_schema = self.decode_schema_at_exact_len(schema_len)?;
         if &embedded_schema != cached_schema {
-            return Err(Error::invalid(
-                "embedded schema does not match cached schema",
-            ));
+            return Err(Error::new(ErrorKind::EmbeddedSchemaMismatch));
         }
         Ok(())
     }
@@ -302,7 +300,7 @@ impl<'de> Decoder<'de> {
                 let precision = self.read_uvarint()?;
                 let scale = self.read_uvarint()?;
                 if precision == 0 || scale > precision {
-                    return Err(Error::invalid("invalid Decimal(P,S) parameters"));
+                    return Err(Error::new(ErrorKind::InvalidDecimalParameters));
                 }
                 TypeDescriptor::DecimalFixed { precision, scale }
             }
@@ -324,7 +322,7 @@ impl<'de> Decoder<'de> {
                     1 => TimestampPrecision::Milliseconds,
                     2 => TimestampPrecision::Microseconds,
                     3 => TimestampPrecision::Nanoseconds,
-                    _ => return Err(Error::invalid("invalid timestamp precision")),
+                    other => return Err(Error::new(ErrorKind::InvalidTimestampPrecision(other))),
                 };
                 TypeDescriptor::Timestamp(precision)
             }
@@ -343,19 +341,19 @@ impl<'de> Decoder<'de> {
                 for _ in 0..count {
                     let id = self.read_uvarint()?;
                     if id == 0 {
-                        return Err(Error::invalid("struct FieldId must be greater than zero"));
+                        return Err(Error::new(ErrorKind::StructFieldIdZero));
                     }
                     let name = self.read_text_owned()?;
                     if name.is_empty() {
-                        return Err(Error::invalid("struct field name must be non-empty"));
+                        return Err(Error::new(ErrorKind::StructFieldNameEmpty));
                     }
                     let flags = self.read_uvarint()?;
                     if flags != 0 {
-                        return Err(Error::invalid("struct field flags must be zero"));
+                        return Err(Error::new(ErrorKind::StructFieldFlagsNonZero(flags)));
                     }
                     let ty = self.decode_type_descriptor(depth + 1)?;
                     if !seen_ids.insert(id) || !seen_names.insert(name.clone()) {
-                        return Err(Error::invalid("duplicate struct field identifier or name"));
+                        return Err(Error::new(ErrorKind::DuplicateStructFieldDefinition));
                     }
                     fields.push(Field { id, name, ty });
                 }
@@ -370,7 +368,7 @@ impl<'de> Decoder<'de> {
                 let max_count = wire::max_count_from_wire(self.read_uvarint()?);
                 let key = Box::new(self.decode_type_descriptor(depth + 1)?);
                 if !validate::is_valid_map_key_type(&key) {
-                    return Err(Error::invalid("invalid map key type"));
+                    return Err(Error::new(ErrorKind::InvalidMapKeyType));
                 }
                 let value = Box::new(self.decode_type_descriptor(depth + 1)?);
                 TypeDescriptor::Map {
@@ -389,10 +387,10 @@ impl<'de> Decoder<'de> {
                 for _ in 0..count {
                     let name = self.read_text_owned()?;
                     if name.is_empty() {
-                        return Err(Error::invalid("union variant name must be non-empty"));
+                        return Err(Error::new(ErrorKind::UnionVariantNameEmpty));
                     }
                     if !seen_names.insert(name.clone()) {
-                        return Err(Error::invalid("duplicate union variant name"));
+                        return Err(Error::new(ErrorKind::DuplicateUnionVariantName));
                     }
                     let ty = self.decode_type_descriptor(depth + 1)?;
                     variants.push(Variant { name, ty });
@@ -409,10 +407,10 @@ impl<'de> Decoder<'de> {
                 for _ in 0..count {
                     let symbol = self.read_text_owned()?;
                     if symbol.is_empty() {
-                        return Err(Error::invalid("enum symbol must be non-empty"));
+                        return Err(Error::new(ErrorKind::EnumSymbolEmpty));
                     }
                     if !seen_symbols.insert(symbol.clone()) {
-                        return Err(Error::invalid("duplicate enum symbol"));
+                        return Err(Error::new(ErrorKind::DuplicateEnumSymbol));
                     }
                     symbols.push(symbol);
                 }
@@ -551,7 +549,7 @@ impl<'de> Decoder<'de> {
                 for field in fields {
                     let value = self
                         .decode_value_for(&field.ty, depth + 1)
-                        .map_err(|err| err.at_path(alloc::format!("/{}", field.name)))?;
+                        .map_err(|err| err.at_field(field.name.clone()))?;
                     values.push((field.id, value));
                 }
                 TpackValue::Struct(values)
@@ -563,7 +561,7 @@ impl<'de> Decoder<'de> {
                 for index in 0..count {
                     let value = self
                         .decode_value_for(element, depth + 1)
-                        .map_err(|err| err.at_path(alloc::format!("/{index}")))?;
+                        .map_err(|err| err.at_index(index))?;
                     values.push(value);
                 }
                 TpackValue::List(values)

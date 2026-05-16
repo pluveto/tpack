@@ -5,7 +5,7 @@ mod value;
 use serde::de::Deserialize;
 use tpack_core::{DecodeOptions, Decoder, Limits, Schema, SchemaRegistry, TpackValue};
 
-use self::error::Error;
+pub use self::error::{Error, ErrorKind, Result};
 use self::value::ValueDeserializer;
 
 /// Configurable entry point for serde-based TPACK deserialization.
@@ -50,20 +50,22 @@ impl<'a> Deserializer<'a> {
     }
 
     /// Deserialize a typed value from TPACK-encoded bytes.
-    pub fn slice<'de, T>(&self, bytes: &'de [u8]) -> tpack_core::Result<T>
+    pub fn slice<'de, T>(&self, bytes: &'de [u8]) -> Result<T>
     where
         T: Deserialize<'de>,
     {
         let mut decoder = Decoder::with_options(bytes, self.decode_options);
         let message = match self.registry {
-            Some(registry) => decoder.decode_message_with_registry(registry)?,
-            None => decoder.decode_message()?,
+            Some(registry) => decoder
+                .decode_message_with_registry(registry)
+                .map_err(Error::from_core)?,
+            None => decoder.decode_message().map_err(Error::from_core)?,
         };
         self.value(&message.schema, message.value)
     }
 
     /// Deserialize a typed value from an already-decoded `TpackValue`.
-    pub fn value<'de, T>(&self, schema: &Schema, value: TpackValue<'de>) -> tpack_core::Result<T>
+    pub fn value<'de, T>(&self, schema: &Schema, value: TpackValue<'de>) -> Result<T>
     where
         T: Deserialize<'de>,
     {
@@ -72,7 +74,6 @@ impl<'a> Deserializer<'a> {
             value,
             self.decode_options.limits.max_depth,
         ))
-        .map_err(Error::into_core)
     }
 }
 
@@ -82,14 +83,14 @@ impl Default for Deserializer<'_> {
     }
 }
 
-pub fn from_slice<'de, T>(bytes: &'de [u8]) -> tpack_core::Result<T>
+pub fn from_slice<'de, T>(bytes: &'de [u8]) -> Result<T>
 where
     T: Deserialize<'de>,
 {
     Deserializer::new().slice(bytes)
 }
 
-pub fn from_value<'de, T>(schema: &Schema, value: TpackValue<'de>) -> tpack_core::Result<T>
+pub fn from_value<'de, T>(schema: &Schema, value: TpackValue<'de>) -> Result<T>
 where
     T: Deserialize<'de>,
 {

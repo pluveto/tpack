@@ -86,7 +86,10 @@ fn cache_hit_rejects_mismatched_embedded_schema_even_when_it_is_well_formed() {
 
     let mut decoder = Decoder::new(&bytes);
     assert!(matches!(
-        decoder.decode_message_with_registry(&registry).unwrap_err().kind(),
-        ErrorKind::Invalid(message) if message == "embedded schema does not match cached schema"
+        decoder
+            .decode_message_with_registry(&registry)
+            .unwrap_err()
+            .kind(),
+        ErrorKind::EmbeddedSchemaMismatch
     ));
 }

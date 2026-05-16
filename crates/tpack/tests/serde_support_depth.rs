@@ -1,6 +1,9 @@
 #![cfg(feature = "serde_support")]
 
-use tpack::{ErrorKind, Limits, Schema, TpackValue, TypeDescriptor};
+use std::error::Error as StdError;
+
+use tpack::serde_support::ErrorKind;
+use tpack::{Limits, Schema, TpackValue, TypeDescriptor};
 
 fn nested_list_schema(levels: usize) -> Schema {
     let mut ty = TypeDescriptor::U8;
@@ -52,8 +55,15 @@ fn deep_value_is_rejected_when_depth_limit_is_exceeded() {
         .value::<Vec<Vec<u8>>>(&schema, value)
         .unwrap_err();
 
-    assert!(matches!(
-        error.kind(),
-        ErrorKind::LimitExceeded("value depth")
-    ));
+    assert!(matches!(error.kind(), ErrorKind::DepthLimitExceeded));
+    assert_eq!(error.path().to_string(), "/0/0");
+}
+
+#[test]
+fn from_slice_wraps_core_errors_and_preserves_source_chain() {
+    let error = tpack::serde_support::from_slice::<u8>(&[0x54]).unwrap_err();
+
+    assert!(matches!(error.kind(), ErrorKind::Core));
+    let source = StdError::source(&error).expect("core error source");
+    assert_eq!(source.to_string(), "unexpected end of input");
 }

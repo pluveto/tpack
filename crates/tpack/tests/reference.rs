@@ -674,8 +674,56 @@ mod reference_cases {
         .unwrap_err();
         assert!(matches!(
             duplicate_error.kind(),
-            ErrorKind::Invalid(message) if message == "duplicate struct field value"
+            tpack::serde_support::ErrorKind::DuplicateStructFieldValue
         ));
+    }
+
+    #[cfg(feature = "serde_support")]
+    #[test]
+    fn serde_support_error_paths_cover_struct_fields_and_map_values() {
+        use serde::Deserialize;
+        use std::collections::BTreeMap;
+
+        #[allow(dead_code)]
+        #[derive(Debug, Deserialize)]
+        struct Payload {
+            qty: i32,
+        }
+
+        let struct_schema = Schema::new(TypeDescriptor::Struct(vec![Field::new(
+            1,
+            "qty",
+            TypeDescriptor::I32,
+        )]));
+        let struct_error = tpack::serde_support::from_value::<Payload>(
+            &struct_schema,
+            TpackValue::Struct(vec![(1, TpackValue::String(Cow::Borrowed("bad")))]),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            struct_error.kind(),
+            tpack::serde_support::ErrorKind::TypeMismatch { expected: "I32" }
+        ));
+        assert_eq!(struct_error.path().to_string(), "/qty");
+
+        let map_schema = Schema::new(TypeDescriptor::Map {
+            max_count: None,
+            key: Box::new(TypeDescriptor::String { max_len: None }),
+            value: Box::new(TypeDescriptor::I32),
+        });
+        let map_error = tpack::serde_support::from_value::<BTreeMap<String, i32>>(
+            &map_schema,
+            TpackValue::Map(vec![ValueMapEntry {
+                key: TpackValue::String(Cow::Borrowed("a")),
+                value: TpackValue::String(Cow::Borrowed("bad")),
+            }]),
+        )
+        .unwrap_err();
+        assert!(matches!(
+            map_error.kind(),
+            tpack::serde_support::ErrorKind::TypeMismatch { expected: "I32" }
+        ));
+        assert_eq!(map_error.path().to_string(), "/0");
     }
 
     #[cfg(all(feature = "serde_support", feature = "std"))]

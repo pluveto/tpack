@@ -9,11 +9,12 @@ use super::value::ValueDeserializer;
 pub(super) struct SeqValueAccess<'a, 'de> {
     element_ty: &'a TypeDescriptor,
     values: std::vec::IntoIter<TpackValue<'de>>,
+    index: usize,
     remaining_depth: usize,
 }
 
 impl<'a, 'de> SeqValueAccess<'a, 'de> {
-    pub(super) fn new(
+    pub(super) fn from_values(
         element_ty: &'a TypeDescriptor,
         values: Vec<TpackValue<'de>>,
         remaining_depth: usize,
@@ -21,16 +22,18 @@ impl<'a, 'de> SeqValueAccess<'a, 'de> {
         Self {
             element_ty,
             values: values.into_iter(),
+            index: 0,
             remaining_depth,
         }
     }
 
-    pub(super) fn new_synthetic(
+    pub(super) fn from_typed_values(
         values: Vec<(TypeDescriptor, TpackValue<'de>)>,
         remaining_depth: usize,
     ) -> SyntheticSeqAccess<'de> {
         SyntheticSeqAccess {
             values: values.into_iter(),
+            index: 0,
             remaining_depth,
         }
     }
@@ -44,12 +47,12 @@ pub(super) struct StructTupleAccess<'a, 'de> {
 }
 
 impl<'a, 'de> StructTupleAccess<'a, 'de> {
-    pub(super) fn new(
+    pub(super) fn from_field_values(
         fields: &'a [Field],
         values: Vec<(u64, TpackValue<'de>)>,
         remaining_depth: usize,
     ) -> Result<Self, Error> {
-        let matcher = StructFieldMatcher::new(fields);
+        let matcher = StructFieldMatcher::from_fields(fields);
         Ok(Self {
             fields,
             values: matcher.values_by_schema(values)?,
@@ -61,6 +64,7 @@ impl<'a, 'de> StructTupleAccess<'a, 'de> {
 
 pub(super) struct SyntheticSeqAccess<'de> {
     values: std::vec::IntoIter<(TypeDescriptor, TpackValue<'de>)>,
+    index: usize,
     remaining_depth: usize,
 }
 
@@ -72,12 +76,12 @@ pub(super) struct StructAccess<'a, 'de> {
 }
 
 impl<'a, 'de> StructAccess<'a, 'de> {
-    pub(super) fn new(
+    pub(super) fn from_field_values(
         fields: &'a [Field],
         values: Vec<(u64, TpackValue<'de>)>,
         remaining_depth: usize,
     ) -> Result<Self, Error> {
-        let matcher = StructFieldMatcher::new(fields);
+        let matcher = StructFieldMatcher::from_fields(fields);
         Ok(Self {
             fields,
             entries: matcher.entries_by_id(values)?.into_iter(),
@@ -92,11 +96,13 @@ pub(super) struct MapValueAccess<'a, 'de> {
     value_ty: &'a TypeDescriptor,
     entries: std::vec::IntoIter<ValueMapEntry<'de>>,
     pending_value: Option<TpackValue<'de>>,
+    pending_index: Option<usize>,
+    next_index: usize,
     remaining_depth: usize,
 }
 
 impl<'a, 'de> MapValueAccess<'a, 'de> {
-    pub(super) fn new(
+    pub(super) fn from_entries(
         key_ty: &'a TypeDescriptor,
         value_ty: &'a TypeDescriptor,
         entries: Vec<ValueMapEntry<'de>>,
@@ -107,6 +113,8 @@ impl<'a, 'de> MapValueAccess<'a, 'de> {
             value_ty,
             entries: entries.into_iter(),
             pending_value: None,
+            pending_index: None,
+            next_index: 0,
             remaining_depth,
         }
     }
@@ -156,7 +164,7 @@ struct StructFieldMatcher<'a> {
 }
 
 impl<'a> StructFieldMatcher<'a> {
-    fn new(fields: &'a [Field]) -> Self {
+    fn from_fields(fields: &'a [Field]) -> Self {
         let field_indices = fields
             .iter()
             .enumerate()
@@ -179,7 +187,7 @@ impl<'a> StructFieldMatcher<'a> {
                 continue;
             };
             if seen[index] {
-                return Err(Error::invalid("duplicate struct field value"));
+                return Err(Error::duplicate_struct_field_value());
             }
             seen[index] = true;
             entries.push((index, value));
@@ -209,12 +217,13 @@ impl<'de, 'a> SeqAccess<'de> for SeqValueAccess<'a, 'de> {
         let Some(value) = self.values.next() else {
             return Ok(None);
         };
-        seed.deserialize(ValueDeserializer::child(
-            self.element_ty,
-            value,
-            self.remaining_depth,
-        )?)
-        .map(Some)
+        let index = self.index;
+        self.index += 1;
+        let deserializer = ValueDeserializer::child(self.element_ty, value, self.remaining_depth)
+            .map_err(|err| err.at_index(index))?;
+        seed.deserialize(deserializer)
+            .map_err(|err| err.at_index(index))
+            .map(Some)
     }
 
     fn size_hint(&self) -> Option<usize> {
@@ -234,14 +243,13 @@ impl<'de, 'a> SeqAccess<'de> for StructTupleAccess<'a, 'de> {
         };
         let value = self.values[self.index]
             .take()
-            .ok_or(Error::invalid("missing struct field value"))?;
+            .ok_or_else(Error::missing_struct_field_value)?;
         self.index += 1;
-        seed.deserialize(ValueDeserializer::child(
-            &field.ty,
-            value,
-            self.remaining_depth,
-        )?)
-        .map(Some)
+        let deserializer = ValueDeserializer::child(&field.ty, value, self.remaining_depth)
+            .map_err(|err| err.at_field(field.name.clone()))?;
+        seed.deserialize(deserializer)
+            .map_err(|err| err.at_field(field.name.clone()))
+            .map(Some)
     }
 
     fn size_hint(&self) -> Option<usize> {
@@ -259,7 +267,10 @@ impl<'de> SeqAccess<'de> for SyntheticSeqAccess<'de> {
         let Some((ty, value)) = self.values.next() else {
             return Ok(None);
         };
+        let index = self.index;
+        self.index += 1;
         seed.deserialize(ValueDeserializer::new(&ty, value, self.remaining_depth))
+            .map_err(|err| err.at_index(index))
             .map(Some)
     }
 
@@ -276,7 +287,7 @@ impl<'de, 'a> MapAccess<'de> for StructAccess<'a, 'de> {
         K: DeserializeSeed<'de>,
     {
         if self.pending_value.is_some() {
-            return Err(Error::invalid("struct key requested before value"));
+            return Err(Error::struct_key_before_value());
         }
         let Some((index, value)) = self.entries.next() else {
             return Ok(None);
@@ -293,12 +304,12 @@ impl<'de, 'a> MapAccess<'de> for StructAccess<'a, 'de> {
         let (index, value) = self
             .pending_value
             .take()
-            .ok_or(Error::invalid("struct value requested before key"))?;
-        seed.deserialize(ValueDeserializer::child(
-            &self.fields[index].ty,
-            value,
-            self.remaining_depth,
-        )?)
+            .ok_or_else(Error::struct_value_before_key)?;
+        let deserializer =
+            ValueDeserializer::child(&self.fields[index].ty, value, self.remaining_depth)
+                .map_err(|err| err.at_field(self.fields[index].name.clone()))?;
+        seed.deserialize(deserializer)
+            .map_err(|err| err.at_field(self.fields[index].name.clone()))
     }
 
     fn size_hint(&self) -> Option<usize> {
@@ -316,13 +327,15 @@ impl<'de, 'a> MapAccess<'de> for MapValueAccess<'a, 'de> {
         let Some(entry) = self.entries.next() else {
             return Ok(None);
         };
+        let index = self.next_index;
+        self.next_index += 1;
+        self.pending_index = Some(index);
         self.pending_value = Some(entry.value);
-        seed.deserialize(ValueDeserializer::child(
-            self.key_ty,
-            entry.key,
-            self.remaining_depth,
-        )?)
-        .map(Some)
+        let deserializer = ValueDeserializer::child(self.key_ty, entry.key, self.remaining_depth)
+            .map_err(|err| err.at_index(index))?;
+        seed.deserialize(deserializer)
+            .map_err(|err| err.at_index(index))
+            .map(Some)
     }
 
     fn next_value_seed<V>(&mut self, seed: V) -> Result<V::Value, Error>
@@ -332,12 +345,15 @@ impl<'de, 'a> MapAccess<'de> for MapValueAccess<'a, 'de> {
         let value = self
             .pending_value
             .take()
-            .ok_or(Error::invalid("map value requested before key"))?;
-        seed.deserialize(ValueDeserializer::child(
-            self.value_ty,
-            value,
-            self.remaining_depth,
-        )?)
+            .ok_or_else(Error::map_value_before_key)?;
+        let index = self
+            .pending_index
+            .take()
+            .expect("pending map value index tracks pending map value");
+        let deserializer = ValueDeserializer::child(self.value_ty, value, self.remaining_depth)
+            .map_err(|err| err.at_index(index))?;
+        seed.deserialize(deserializer)
+            .map_err(|err| err.at_index(index))
     }
 
     fn size_hint(&self) -> Option<usize> {
@@ -372,7 +388,7 @@ impl<'de, 'a> VariantAccess<'de> for VariantValueAccess<'a, 'de> {
 
     fn unit_variant(self) -> Result<(), Error> {
         if self.payload.is_some() {
-            return Err(Error::invalid("expected unit enum variant"));
+            return Err(Error::expected_unit_enum_variant());
         }
         Ok(())
     }
@@ -383,11 +399,12 @@ impl<'de, 'a> VariantAccess<'de> for VariantValueAccess<'a, 'de> {
     {
         let ty = self
             .payload_ty
-            .ok_or(Error::invalid("expected data enum variant"))?;
+            .ok_or_else(Error::expected_data_enum_variant)?;
         let value = self
             .payload
-            .ok_or(Error::invalid("missing union variant payload"))?;
-        seed.deserialize(ValueDeserializer::child(ty, value, self.remaining_depth)?)
+            .ok_or_else(Error::missing_union_variant_payload)?;
+        let deserializer = ValueDeserializer::child(ty, value, self.remaining_depth)?;
+        seed.deserialize(deserializer)
     }
 
     fn tuple_variant<V>(self, _len: usize, visitor: V) -> Result<V::Value, Error>
@@ -396,14 +413,12 @@ impl<'de, 'a> VariantAccess<'de> for VariantValueAccess<'a, 'de> {
     {
         let ty = self
             .payload_ty
-            .ok_or(Error::invalid("expected tuple enum variant"))?;
+            .ok_or_else(Error::expected_tuple_enum_variant)?;
         let value = self
             .payload
-            .ok_or(Error::invalid("missing union variant payload"))?;
-        de::Deserializer::deserialize_seq(
-            ValueDeserializer::child(ty, value, self.remaining_depth)?,
-            visitor,
-        )
+            .ok_or_else(Error::missing_union_variant_payload)?;
+        let deserializer = ValueDeserializer::child(ty, value, self.remaining_depth)?;
+        de::Deserializer::deserialize_seq(deserializer, visitor)
     }
 
     fn struct_variant<V>(
@@ -416,13 +431,11 @@ impl<'de, 'a> VariantAccess<'de> for VariantValueAccess<'a, 'de> {
     {
         let ty = self
             .payload_ty
-            .ok_or(Error::invalid("expected struct enum variant"))?;
+            .ok_or_else(Error::expected_struct_enum_variant)?;
         let value = self
             .payload
-            .ok_or(Error::invalid("missing union variant payload"))?;
-        de::Deserializer::deserialize_map(
-            ValueDeserializer::child(ty, value, self.remaining_depth)?,
-            visitor,
-        )
+            .ok_or_else(Error::missing_union_variant_payload)?;
+        let deserializer = ValueDeserializer::child(ty, value, self.remaining_depth)?;
+        de::Deserializer::deserialize_map(deserializer, visitor)
     }
 }

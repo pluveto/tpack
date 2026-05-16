@@ -34,7 +34,7 @@ impl<'a, 'de> ValueDeserializer<'a, 'de> {
     ) -> Result<Self, Error> {
         let remaining_depth = remaining_depth
             .checked_sub(1)
-            .ok_or_else(|| Error::limit("value depth"))?;
+            .ok_or_else(Error::depth_limit)?;
         Ok(Self::new(ty, value, remaining_depth))
     }
 }
@@ -225,12 +225,10 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
         };
         let mut chars = value.chars();
         let Some(ch) = chars.next() else {
-            return Err(Error::invalid("empty string cannot deserialize as char"));
+            return Err(Error::empty_string_for_char());
         };
         if chars.next().is_some() {
-            return Err(Error::invalid(
-                "multi-character string cannot deserialize as char",
-            ));
+            return Err(Error::multi_character_string_for_char());
         }
         visitor.visit_char(ch)
     }
@@ -323,7 +321,7 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
     {
         match (self.ty, self.value) {
             (TypeDescriptor::Decimal, TpackValue::Decimal(value)) => {
-                visitor.visit_seq(SeqValueAccess::new_synthetic(
+                visitor.visit_seq(SeqValueAccess::from_typed_values(
                     vec![
                         (TypeDescriptor::I64, TpackValue::I64(value.scale)),
                         (TypeDescriptor::I64, TpackValue::I64(value.coefficient)),
@@ -335,7 +333,7 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
                 visitor.visit_i64(value)
             }
             (TypeDescriptor::DateTime, TpackValue::DateTime { days, nanos }) => {
-                visitor.visit_seq(SeqValueAccess::new_synthetic(
+                visitor.visit_seq(SeqValueAccess::from_typed_values(
                     vec![
                         (TypeDescriptor::I64, TpackValue::I64(days)),
                         (TypeDescriptor::U64, TpackValue::U64(nanos)),
@@ -344,7 +342,7 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
                 ))
             }
             (TypeDescriptor::Duration, TpackValue::Duration(value)) => {
-                visitor.visit_seq(SeqValueAccess::new_synthetic(
+                visitor.visit_seq(SeqValueAccess::from_typed_values(
                     vec![
                         (TypeDescriptor::I64, TpackValue::I64(value.seconds)),
                         (TypeDescriptor::I64, TpackValue::I64(value.nanos)),
@@ -353,7 +351,7 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
                 ))
             }
             (TypeDescriptor::CalendarInterval, TpackValue::CalendarInterval(value)) => visitor
-                .visit_seq(SeqValueAccess::new_synthetic(
+                .visit_seq(SeqValueAccess::from_typed_values(
                     vec![
                         (TypeDescriptor::I64, TpackValue::I64(value.months)),
                         (TypeDescriptor::I64, TpackValue::I64(value.days)),
@@ -374,11 +372,11 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
         V: Visitor<'de>,
     {
         match (self.ty, self.value) {
-            (TypeDescriptor::List { element, .. }, TpackValue::List(values)) => {
-                visitor.visit_seq(SeqValueAccess::new(element, values, self.remaining_depth))
-            }
+            (TypeDescriptor::List { element, .. }, TpackValue::List(values)) => visitor.visit_seq(
+                SeqValueAccess::from_values(element, values, self.remaining_depth),
+            ),
             (TypeDescriptor::Struct(fields), TpackValue::Struct(values)) => visitor.visit_seq(
-                StructTupleAccess::new(fields, values, self.remaining_depth)?,
+                StructTupleAccess::from_field_values(fields, values, self.remaining_depth)?,
             ),
             _ => Err(Error::type_mismatch(self.ty)),
         }
@@ -408,11 +406,11 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
         V: Visitor<'de>,
     {
         match (self.ty, self.value) {
-            (TypeDescriptor::Struct(fields), TpackValue::Struct(values)) => {
-                visitor.visit_map(StructAccess::new(fields, values, self.remaining_depth)?)
-            }
+            (TypeDescriptor::Struct(fields), TpackValue::Struct(values)) => visitor.visit_map(
+                StructAccess::from_field_values(fields, values, self.remaining_depth)?,
+            ),
             (TypeDescriptor::Map { key, value, .. }, TpackValue::Map(entries)) => visitor
-                .visit_map(MapValueAccess::new(
+                .visit_map(MapValueAccess::from_entries(
                     key,
                     value,
                     entries,
@@ -445,17 +443,19 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
     {
         match (self.ty, self.value) {
             (TypeDescriptor::Enum(symbols), TpackValue::Enum(index)) => {
-                let index = usize::try_from(index).map_err(|_| Error::limit("enum index"))?;
+                let index =
+                    usize::try_from(index).map_err(|_| Error::enum_symbol_index_out_of_range())?;
                 let name = symbols
                     .get(index)
-                    .ok_or(Error::invalid("enum symbol index out of range"))?;
+                    .ok_or_else(Error::enum_symbol_index_out_of_range)?;
                 visitor.visit_enum(EnumValueAccess::unit(name))
             }
             (TypeDescriptor::Union(variants), TpackValue::Union { index, value }) => {
-                let index = usize::try_from(index).map_err(|_| Error::limit("variant index"))?;
+                let index = usize::try_from(index)
+                    .map_err(|_| Error::union_variant_index_out_of_range())?;
                 let variant = variants
                     .get(index)
-                    .ok_or(Error::invalid("union variant index out of range"))?;
+                    .ok_or_else(Error::union_variant_index_out_of_range)?;
                 visitor.visit_enum(EnumValueAccess::with_payload(
                     &variant.name,
                     &variant.ty,

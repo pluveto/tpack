@@ -26,7 +26,7 @@ impl Error {
 
     pub(super) fn type_mismatch(ty: &TypeDescriptor) -> Self {
         Self::new(ErrorKind::TypeMismatch {
-            expected: Self::type_name(ty),
+            expected: Self::type_label(ty),
         })
     }
 
@@ -34,7 +34,7 @@ impl Error {
         self.inner
     }
 
-    fn type_name(ty: &TypeDescriptor) -> &'static str {
+    fn type_label(ty: &TypeDescriptor) -> &'static str {
         match ty {
             TypeDescriptor::Null => "Null",
             TypeDescriptor::Bool => "Bool",

@@ -11,10 +11,7 @@ use super::validate::{
     validate_schema,
 };
 
-pub(in crate::codec) fn encode_schema_with_options(
-    schema: &Schema,
-    options: EncodeOptions,
-) -> Result<Vec<u8>> {
+pub(in crate::codec) fn schema(schema: &Schema, options: EncodeOptions) -> Result<Vec<u8>> {
     validate_schema(schema, &options.limits)?;
     let mut out = Vec::new();
     SchemaEncoder::new(&mut out).write_type_descriptor(&schema.root)?;
@@ -24,7 +21,7 @@ pub(in crate::codec) fn encode_schema_with_options(
     Ok(out)
 }
 
-pub(in crate::codec) fn encode_value_with_options(
+pub(in crate::codec) fn value(
     ty: &TypeDescriptor,
     value: &TpackValue<'_>,
     options: EncodeOptions,
@@ -131,12 +128,12 @@ impl<'a> SchemaEncoder<'a> {
             }
             TypeDescriptor::Extension {
                 authority,
-                type_name,
+                type_name: type_label,
                 schema_params,
             } => {
                 self.out.push(0x26);
                 wire::write_text(self.out, authority);
-                wire::write_text(self.out, type_name);
+                wire::write_text(self.out, type_label);
                 wire::write_bytes(self.out, schema_params);
             }
         }
@@ -318,7 +315,7 @@ impl<'a> ValueEncoder<'a> {
             }
             _ => {
                 return Err(Error::new(ErrorKind::TypeMismatch {
-                    expected: Self::type_name(ty),
+                    expected: Self::type_label(ty),
                 }));
             }
         }
@@ -375,7 +372,7 @@ impl<'a> ValueEncoder<'a> {
         let mut encoded_entries = Vec::with_capacity(entries.len());
         for entry in entries {
             reject_nan_map_key(&entry.key)?;
-            let key_bytes = encode_value_with_options(
+            let key_bytes = value(
                 key_ty,
                 &entry.key,
                 EncodeOptions {
@@ -413,7 +410,7 @@ impl<'a> ValueEncoder<'a> {
         Ok(())
     }
 
-    fn type_name(ty: &TypeDescriptor) -> &'static str {
+    fn type_label(ty: &TypeDescriptor) -> &'static str {
         match ty {
             TypeDescriptor::Null => "Null",
             TypeDescriptor::Bool => "Bool",

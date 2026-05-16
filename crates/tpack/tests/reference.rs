@@ -710,7 +710,7 @@ mod reference_cases {
 
         let decoded: Payload = tpack::serde_support::Deserializer::new()
             .registry(&registry)
-            .from_slice(&bytes)
+            .slice(&bytes)
             .unwrap();
         assert_eq!(
             decoded,

@@ -424,11 +424,11 @@ impl<'de> Decoder<'de> {
             }
             0x26 => {
                 let authority = self.read_text_owned()?;
-                let type_name = self.read_text_owned()?;
+                let type_label = self.read_text_owned()?;
                 let schema_params = self.read_bytes_owned(self.options.limits.max_extension_len)?;
                 TypeDescriptor::Extension {
                     authority,
-                    type_name,
+                    type_name: type_label,
                     schema_params,
                 }
             }
@@ -605,7 +605,7 @@ impl<'de> Decoder<'de> {
                         last_key_bytes = Some(raw_key_bytes);
                     }
                     if !self.options.canonical.is_strict() {
-                        let canonical_key = encode::encode_value_with_options(
+                        let canonical_key = encode::value(
                             key,
                             &key_value,
                             EncodeOptions {
@@ -821,7 +821,7 @@ impl Encoder {
         mode: EnvelopeMode,
         schema_id: Option<&[u8]>,
     ) -> Result<()> {
-        let schema_bytes = encode::encode_schema_with_options(schema, self.options)?;
+        let schema_bytes = encode::schema(schema, self.options)?;
         self.out.extend_from_slice(&MAGIC);
         self.out.push(VERSION);
         self.out.push(mode.tag());
@@ -854,7 +854,7 @@ impl Encoder {
     }
 
     pub fn encode_schema(&mut self, schema: &Schema) -> Result<()> {
-        let schema_bytes = encode::encode_schema_with_options(schema, self.options)?;
+        let schema_bytes = encode::schema(schema, self.options)?;
         self.out.extend_from_slice(&schema_bytes);
         Ok(())
     }
@@ -886,11 +886,11 @@ pub fn encode_message(
 }
 
 pub fn encode_schema(schema: &Schema) -> Result<Vec<u8>> {
-    encode::encode_schema_with_options(schema, EncodeOptions::default())
+    encode::schema(schema, EncodeOptions::default())
 }
 
 pub fn encode_value(schema: &Schema, value: &TpackValue<'_>) -> Result<Vec<u8>> {
-    encode::encode_value_with_options(&schema.root, value, EncodeOptions::default())
+    encode::value(&schema.root, value, EncodeOptions::default())
 }
 
 #[cfg(test)]
@@ -1000,7 +1000,7 @@ mod tests {
             "schema_name",
             TypeDescriptor::Null,
         )]));
-        let schema_len = encode::encode_schema_with_options(&schema, EncodeOptions::default())
+        let schema_len = encode::schema(&schema, EncodeOptions::default())
             .expect("encode schema")
             .len();
         let options = EncodeOptions {
@@ -1012,9 +1012,7 @@ mod tests {
         };
 
         assert!(matches!(
-            encode::encode_schema_with_options(&schema, options)
-                .unwrap_err()
-                .kind(),
+            encode::schema(&schema, options).unwrap_err().kind(),
             ErrorKind::SchemaLengthExceeded
         ));
     }

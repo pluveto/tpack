@@ -50,7 +50,7 @@ impl<'a> Deserializer<'a> {
     }
 
     /// Deserialize a typed value from TPACK-encoded bytes.
-    pub fn from_slice<'de, T>(&self, bytes: &'de [u8]) -> tpack_core::Result<T>
+    pub fn slice<'de, T>(&self, bytes: &'de [u8]) -> tpack_core::Result<T>
     where
         T: Deserialize<'de>,
     {
@@ -59,15 +59,11 @@ impl<'a> Deserializer<'a> {
             Some(registry) => decoder.decode_message_with_registry(registry)?,
             None => decoder.decode_message()?,
         };
-        self.from_value(&message.schema, message.value)
+        self.value(&message.schema, message.value)
     }
 
     /// Deserialize a typed value from an already-decoded `TpackValue`.
-    pub fn from_value<'de, T>(
-        &self,
-        schema: &Schema,
-        value: TpackValue<'de>,
-    ) -> tpack_core::Result<T>
+    pub fn value<'de, T>(&self, schema: &Schema, value: TpackValue<'de>) -> tpack_core::Result<T>
     where
         T: Deserialize<'de>,
     {
@@ -90,12 +86,12 @@ pub fn from_slice<'de, T>(bytes: &'de [u8]) -> tpack_core::Result<T>
 where
     T: Deserialize<'de>,
 {
-    Deserializer::new().from_slice(bytes)
+    Deserializer::new().slice(bytes)
 }
 
 pub fn from_value<'de, T>(schema: &Schema, value: TpackValue<'de>) -> tpack_core::Result<T>
 where
     T: Deserialize<'de>,
 {
-    Deserializer::new().from_value(schema, value)
+    Deserializer::new().value(schema, value)
 }

@@ -32,7 +32,7 @@ fn shallow_value_deserializes_within_depth_limit() {
 
     let decoded: Vec<Vec<u8>> = tpack::serde_support::Deserializer::new()
         .limits(limits)
-        .from_value(&schema, value)
+        .value(&schema, value)
         .unwrap();
 
     assert_eq!(decoded, vec![vec![7]]);
@@ -49,7 +49,7 @@ fn deep_value_is_rejected_when_depth_limit_is_exceeded() {
 
     let error = tpack::serde_support::Deserializer::new()
         .limits(limits)
-        .from_value::<Vec<Vec<u8>>>(&schema, value)
+        .value::<Vec<Vec<u8>>>(&schema, value)
         .unwrap_err();
 
     assert!(matches!(

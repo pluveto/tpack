@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::fmt;
 
 use serde::de::{
@@ -100,17 +101,21 @@ fn struct_entries_by_id<'de>(
     fields: &[Field],
     values: Vec<(u64, TpackValue<'de>)>,
 ) -> Result<Vec<(usize, TpackValue<'de>)>, Error> {
+    let field_indices = fields
+        .iter()
+        .enumerate()
+        .map(|(index, field)| (field.id, index))
+        .collect::<HashMap<_, _>>();
+    let mut seen = vec![false; fields.len()];
     let mut entries = Vec::with_capacity(values.len().min(fields.len()));
     for (id, value) in values {
-        let Some(index) = fields.iter().position(|field| field.id == id) else {
+        let Some(&index) = field_indices.get(&id) else {
             continue;
         };
-        if entries
-            .iter()
-            .any(|(existing_index, _)| *existing_index == index)
-        {
+        if seen[index] {
             return Err(Error::invalid("duplicate struct field value"));
         }
+        seen[index] = true;
         entries.push((index, value));
     }
     Ok(entries)

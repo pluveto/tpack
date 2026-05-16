@@ -12,7 +12,7 @@ pub(super) fn deserialize_via_from_value<'de, T>(value: TpackValue<'de>) -> Resu
 where
     T: FromTpackValue<'de>,
 {
-    T::from_value(value)
+    <T as FromTpackValue<'de>>::from_value(value)
 }
 
 pub(super) fn list_schema(element: Schema) -> Schema {

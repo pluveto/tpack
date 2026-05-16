@@ -10,7 +10,7 @@ impl TpackSerialize for String {
         string_schema()
     }
 
-    fn to_tpack_value(&self) -> TpackValue<'_> {
+    fn to_value(&self) -> TpackValue<'_> {
         TpackValue::String(Cow::Borrowed(self.as_str()))
     }
 }
@@ -20,7 +20,7 @@ impl<'de> TpackDeserialize<'de> for String {
         <Self as TpackSerialize>::schema()
     }
 
-    fn from_tpack_value(value: TpackValue<'de>) -> Result<Self> {
+    fn from_value(value: TpackValue<'de>) -> Result<Self> {
         deserialize_via_from_value(value)
     }
 }
@@ -39,7 +39,7 @@ impl TpackSerialize for &str {
         string_schema()
     }
 
-    fn to_tpack_value(&self) -> TpackValue<'_> {
+    fn to_value(&self) -> TpackValue<'_> {
         TpackValue::String(Cow::Borrowed(*self))
     }
 }
@@ -49,7 +49,7 @@ impl TpackSerialize for &[u8] {
         bytes_schema()
     }
 
-    fn to_tpack_value(&self) -> TpackValue<'_> {
+    fn to_value(&self) -> TpackValue<'_> {
         TpackValue::Bytes(Cow::Borrowed(*self))
     }
 }

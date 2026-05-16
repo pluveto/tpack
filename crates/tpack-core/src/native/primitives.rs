@@ -10,7 +10,7 @@ macro_rules! impl_scalar {
                 Schema::new(TypeDescriptor::$desc)
             }
 
-            fn to_tpack_value(&self) -> TpackValue<'_> {
+            fn to_value(&self) -> TpackValue<'_> {
                 TpackValue::$variant(*self)
             }
         }
@@ -20,7 +20,7 @@ macro_rules! impl_scalar {
                 <Self as TpackSerialize>::schema()
             }
 
-            fn from_tpack_value(value: TpackValue<'de>) -> Result<Self> {
+            fn from_value(value: TpackValue<'de>) -> Result<Self> {
                 deserialize_via_from_value(value)
             }
         }

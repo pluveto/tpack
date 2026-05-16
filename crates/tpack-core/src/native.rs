@@ -5,13 +5,13 @@ pub trait TpackSerialize {
     where
         Self: Sized;
 
-    fn to_tpack_value(&self) -> TpackValue<'_>;
+    fn to_value(&self) -> TpackValue<'_>;
 }
 
 pub trait TpackDeserialize<'de>: Sized {
     fn schema() -> Schema;
 
-    fn from_tpack_value(value: TpackValue<'de>) -> Result<Self>;
+    fn from_value(value: TpackValue<'de>) -> Result<Self>;
 }
 
 pub trait FromTpackValue<'de>: Sized {

@@ -378,7 +378,7 @@ mod reference_cases {
             #[tpack(field_id = 3)]
             tags: Vec<String>,
             #[tpack(field_id = 4)]
-            note: Option<String>,
+            note: ::std::option::Option<String>,
         }
 
         #[derive(Debug, PartialEq, TpackSerialize, TpackDeserialize)]
@@ -406,10 +406,10 @@ mod reference_cases {
             tags: vec!["hot".to_string(), "ioc".to_string()],
             note: Some("desk".to_string()),
         };
-        let order_value = order.to_tpack_value();
-        assert_eq!(Order::from_tpack_value(order_value).unwrap(), order);
+        let order_value = order.to_value();
+        assert_eq!(Order::from_value(order_value).unwrap(), order);
         assert_eq!(
-            Order::from_tpack_value(TpackValue::Struct(vec![
+            Order::from_value(TpackValue::Struct(vec![
                 (
                     3,
                     TpackValue::List(vec![TpackValue::String(Cow::Borrowed("ioc"))])
@@ -427,7 +427,7 @@ mod reference_cases {
             }
         );
         assert!(
-            Order::from_tpack_value(TpackValue::Struct(vec![
+            Order::from_value(TpackValue::Struct(vec![
                 (2, TpackValue::I32(9)),
                 (1, TpackValue::String(Cow::Borrowed("ord-2"))),
             ]))
@@ -438,22 +438,13 @@ mod reference_cases {
             id: "ord-3".to_string(),
             qty: 11,
         };
-        assert_eq!(
-            AutoOrder::from_tpack_value(auto.to_tpack_value()).unwrap(),
-            auto
-        );
+        assert_eq!(AutoOrder::from_value(auto.to_value()).unwrap(), auto);
 
         let side = Side::Sell;
-        assert_eq!(
-            Side::from_tpack_value(side.to_tpack_value()).unwrap(),
-            Side::Sell
-        );
+        assert_eq!(Side::from_value(side.to_value()).unwrap(), Side::Sell);
 
         let event = Event::Label("filled".to_string());
-        assert_eq!(
-            Event::from_tpack_value(event.to_tpack_value()).unwrap(),
-            event
-        );
+        assert_eq!(Event::from_value(event.to_value()).unwrap(), event);
     }
 
     #[test]

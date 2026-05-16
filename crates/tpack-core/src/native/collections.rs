@@ -13,8 +13,8 @@ where
         optional_schema(T::schema())
     }
 
-    fn to_tpack_value(&self) -> TpackValue<'_> {
-        TpackValue::Optional(self.as_ref().map(|value| Box::new(value.to_tpack_value())))
+    fn to_value(&self) -> TpackValue<'_> {
+        TpackValue::Optional(self.as_ref().map(|value| Box::new(value.to_value())))
     }
 }
 
@@ -27,7 +27,7 @@ where
         optional_schema(T::schema())
     }
 
-    fn from_tpack_value(value: TpackValue<'de>) -> Result<Self> {
+    fn from_value(value: TpackValue<'de>) -> Result<Self> {
         deserialize_via_from_value(value)
     }
 }
@@ -39,7 +39,9 @@ where
     fn from_value(value: TpackValue<'de>) -> Result<Self> {
         match value {
             TpackValue::Optional(None) => Ok(None),
-            TpackValue::Optional(Some(value)) => Ok(Some(T::from_tpack_value(*value)?)),
+            TpackValue::Optional(Some(value)) => {
+                Ok(Some(<T as TpackDeserialize<'de>>::from_value(*value)?))
+            }
             _ => Err(type_mismatch("Optional")),
         }
     }
@@ -53,8 +55,8 @@ where
         list_schema(T::schema())
     }
 
-    fn to_tpack_value(&self) -> TpackValue<'_> {
-        TpackValue::List(self.iter().map(TpackSerialize::to_tpack_value).collect())
+    fn to_value(&self) -> TpackValue<'_> {
+        TpackValue::List(self.iter().map(TpackSerialize::to_value).collect())
     }
 }
 
@@ -67,7 +69,7 @@ where
         list_schema(T::schema())
     }
 
-    fn from_tpack_value(value: TpackValue<'de>) -> Result<Self> {
+    fn from_value(value: TpackValue<'de>) -> Result<Self> {
         deserialize_via_from_value(value)
     }
 }
@@ -78,7 +80,10 @@ where
 {
     fn from_value(value: TpackValue<'de>) -> Result<Self> {
         match value {
-            TpackValue::List(values) => values.into_iter().map(T::from_tpack_value).collect(),
+            TpackValue::List(values) => values
+                .into_iter()
+                .map(<T as TpackDeserialize<'de>>::from_value)
+                .collect(),
             _ => Err(type_mismatch("List")),
         }
     }

@@ -1,6 +1,6 @@
 use proc_macro::{Delimiter, TokenStream, TokenTree};
 
-use crate::ast::{EnumVariant, Field, Item, ItemKind};
+use crate::ast::{EnumVariant, Field, Item, ItemKind, TypeKind, TypePath, TypeRef};
 
 pub(crate) fn parse_item(input: TokenStream) -> Result<Item, String> {
     let tokens: Vec<_> = input.into_iter().collect();
@@ -124,7 +124,7 @@ impl<'a> Cursor<'a> {
                 break;
             };
             self.expect_punct(':')?;
-            let ty = self.collect_until_comma();
+            let ty = self.collect_type_until_comma();
             let field_id = if auto_field_id {
                 pending_attr.field_id.unwrap_or((fields.len() as u64) + 1)
             } else {
@@ -181,13 +181,14 @@ impl<'a> Cursor<'a> {
             let payload_ty = match self.tokens.get(self.index) {
                 Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Parenthesis => {
                     self.index += 1;
-                    let pieces = Self::split_top_level_commas(&group.stream().to_string());
+                    let tokens: Vec<_> = group.stream().into_iter().collect();
+                    let pieces = Self::split_top_level_commas(&tokens);
                     if pieces.len() != 1 {
                         return Err(format!(
                             "enum variant `{name}` must have zero fields or exactly one unnamed field"
                         ));
                     }
-                    Some(pieces[0].trim().to_string())
+                    Some(Self::build_type_ref(&pieces[0]))
                 }
                 Some(TokenTree::Group(group)) if group.delimiter() == Delimiter::Brace => {
                     return Err(format!(
@@ -362,13 +363,12 @@ impl<'a> Cursor<'a> {
         }
     }
 
-    fn collect_until_comma(&mut self) -> String {
-        let mut parts = Vec::new();
+    fn collect_type_until_comma(&mut self) -> TypeRef {
+        let start = self.index;
         while self.index < self.tokens.len() && !self.current_is_comma() {
-            parts.push(self.tokens[self.index].to_string());
             self.index += 1;
         }
-        Self::join_type_tokens(&parts)
+        Self::build_type_ref(&self.tokens[start..self.index])
     }
 
     fn current_is_comma(&self) -> bool {
@@ -383,33 +383,96 @@ impl<'a> Cursor<'a> {
             .is_some_and(|token| Self::is_punct(token, ch))
     }
 
-    fn split_top_level_commas(input: &str) -> Vec<String> {
+    fn split_top_level_commas(tokens: &[TokenTree]) -> Vec<Vec<TokenTree>> {
         let mut out = Vec::new();
-        let mut current = String::new();
+        let mut current = Vec::new();
         let mut depth = 0i32;
-        for ch in input.chars() {
-            match ch {
-                '<' | '(' | '[' => {
+        for token in tokens {
+            match token {
+                TokenTree::Punct(punct) if punct.as_char() == '<' => {
                     depth += 1;
-                    current.push(ch);
+                    current.push(token.clone());
                 }
-                '>' | ')' | ']' => {
+                TokenTree::Punct(punct) if punct.as_char() == '>' => {
                     depth -= 1;
-                    current.push(ch);
+                    current.push(token.clone());
                 }
-                ',' if depth == 0 => {
-                    if !current.trim().is_empty() {
-                        out.push(current.trim().to_string());
+                TokenTree::Punct(punct) if punct.as_char() == ',' && depth == 0 => {
+                    if !current.is_empty() {
+                        out.push(current);
                     }
-                    current.clear();
+                    current = Vec::new();
                 }
-                _ => current.push(ch),
+                _ => current.push(token.clone()),
             }
         }
-        if !current.trim().is_empty() {
-            out.push(current.trim().to_string());
+        if !current.is_empty() {
+            out.push(current);
         }
         out
+    }
+
+    fn build_type_ref(tokens: &[TokenTree]) -> TypeRef {
+        let parts = tokens.iter().map(TokenTree::to_string).collect::<Vec<_>>();
+        let source = Self::join_type_tokens(&parts);
+        let kind = Self::parse_type_path(tokens)
+            .map(TypeKind::Path)
+            .unwrap_or(TypeKind::Other);
+        TypeRef::new(source, kind)
+    }
+
+    fn parse_type_path(tokens: &[TokenTree]) -> Option<TypePath> {
+        let mut index = 0;
+        Self::consume_double_colon(tokens, &mut index);
+        let mut segments = Vec::new();
+        loop {
+            let TokenTree::Ident(ident) = tokens.get(index)? else {
+                return None;
+            };
+            segments.push(ident.to_string());
+            index += 1;
+            if tokens
+                .get(index)
+                .is_some_and(|token| Self::is_punct(token, '<'))
+            {
+                Self::consume_angle_args(tokens, &mut index)?;
+            }
+            if !Self::consume_double_colon(tokens, &mut index) {
+                break;
+            }
+        }
+        (index == tokens.len()).then_some(TypePath { segments })
+    }
+
+    fn consume_double_colon(tokens: &[TokenTree], index: &mut usize) -> bool {
+        match (tokens.get(*index), tokens.get(*index + 1)) {
+            (Some(first), Some(second))
+                if Self::is_punct(first, ':') && Self::is_punct(second, ':') =>
+            {
+                *index += 2;
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn consume_angle_args(tokens: &[TokenTree], index: &mut usize) -> Option<()> {
+        let mut depth = 0i32;
+        while let Some(token) = tokens.get(*index) {
+            match token {
+                TokenTree::Punct(punct) if punct.as_char() == '<' => depth += 1,
+                TokenTree::Punct(punct) if punct.as_char() == '>' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        *index += 1;
+                        return Some(());
+                    }
+                }
+                _ => {}
+            }
+            *index += 1;
+        }
+        None
     }
 
     fn join_type_tokens(parts: &[String]) -> String {

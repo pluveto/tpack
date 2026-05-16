@@ -1,12 +1,5 @@
 use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing, TokenStream, TokenTree};
 
-pub(crate) fn is_option_type(ty: &str) -> bool {
-    matches!(
-        ty.trim().split_once('<').map(|(head, _)| head),
-        Some("Option" | "std::option::Option" | "::std::option::Option")
-    )
-}
-
 pub(crate) fn compile_error(message: &str) -> TokenStream {
     let mut stream = TokenStream::new();
     stream.extend([TokenTree::Ident(Ident::new(

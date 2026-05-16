@@ -1,10 +1,22 @@
 [workspace]
-release_always = true
-repo_url = "https://github.com/pluveto/tpack"
+changelog_update = true
+publish = true
+dependencies_update = true
+semver_check = true
+release_always = false
 
-[changelog]
-header = """
-# Changelog
+[[package]]
+name = "tpack-core"
+changelog_path = "crates/tpack-core/CHANGELOG.md"
 
-All notable changes to this project will be documented in this file.
-"""
+[[package]]
+name = "tpack-macros"
+changelog_path = "crates/tpack-macros/CHANGELOG.md"
+
+[[package]]
+name = "tpack"
+changelog_path = "crates/tpack/CHANGELOG.md"
+
+[[package]]
+name = "tpack-cli"
+changelog_path = "crates/tpack-cli/CHANGELOG.md"

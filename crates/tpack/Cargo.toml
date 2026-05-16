@@ -1,10 +1,12 @@
 [package]
 name = "tpack"
-version = "0.1.0"
+description = "Std facade, registry integration, and optional serde support for TPACK"
+version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+readme = "README.md"
 
 [features]
 default = ["std", "derive"]
@@ -13,10 +15,10 @@ derive = ["dep:tpack-macros"]
 serde_support = ["std", "dep:serde"]
 
 [dependencies]
-tpack-core = { path = "../tpack-core" }
-tpack-macros = { path = "../tpack-macros", optional = true }
-serde = { version = "1.0.228", optional = true, default-features = false, features = ["std"] }
+tpack-core.workspace = true
+tpack-macros = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
 
 [dev-dependencies]
 serde = { version = "1.0.228", features = ["derive"] }
-tpack-macros = { path = "../tpack-macros" }
+tpack-macros.workspace = true

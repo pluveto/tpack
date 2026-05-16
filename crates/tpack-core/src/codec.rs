@@ -63,6 +63,7 @@ impl Default for Limits {
 pub struct DecodeOptions {
     pub canonical: CanonicalMode,
     pub allow_schema_ref: bool,
+    pub validate_embedded_schema_on_cache_hit: bool,
     pub limits: Limits,
 }
 
@@ -71,6 +72,7 @@ impl Default for DecodeOptions {
         Self {
             canonical: CanonicalMode::Off,
             allow_schema_ref: true,
+            validate_embedded_schema_on_cache_hit: true,
             limits: Limits::default(),
         }
     }
@@ -155,10 +157,14 @@ impl<'de> Decoder<'de> {
                 }
 
                 if let Some(schema) = registry.get(schema_id.as_bytes()) {
-                    // Cache hits must skip the embedded schema by byte length and
-                    // reuse the shared AST. Returning Schema by value here would
-                    // deep-clone every cached decode.
-                    self.pos = schema_end;
+                    if self.options.validate_embedded_schema_on_cache_hit {
+                        self.validate_cached_schema_bytes(schema_len, schema.as_ref())?;
+                    } else {
+                        // Cache hits can skip the embedded schema by byte length and
+                        // reuse the shared AST when callers explicitly trust the
+                        // registry entry for this schema id.
+                        self.pos = schema_end;
+                    }
                     (Some(schema_id), schema, true)
                 } else {
                     let schema = self.decode_schema_at_exact_len(schema_len)?;
@@ -234,6 +240,20 @@ impl<'de> Decoder<'de> {
             return Err(Error::new(ErrorKind::SchemaLengthMismatch));
         }
         Ok(schema)
+    }
+
+    fn validate_cached_schema_bytes(
+        &mut self,
+        schema_len: usize,
+        cached_schema: &Schema,
+    ) -> Result<()> {
+        let embedded_schema = self.decode_schema_at_exact_len(schema_len)?;
+        if &embedded_schema != cached_schema {
+            return Err(Error::invalid(
+                "embedded schema does not match cached schema",
+            ));
+        }
+        Ok(())
     }
 
     fn read_schema_id(&mut self, require_non_empty: bool) -> Result<SchemaId<'de>> {
@@ -789,7 +809,6 @@ impl Encoder {
         mode: EnvelopeMode,
         schema_id: Option<&[u8]>,
     ) -> Result<()> {
-        validate::validate_schema(schema, &self.options.limits)?;
         let schema_bytes = encode::encode_schema_with_options(schema, self.options)?;
         self.out.extend_from_slice(&MAGIC);
         self.out.push(VERSION);
@@ -823,8 +842,9 @@ impl Encoder {
     }
 
     pub fn encode_schema(&mut self, schema: &Schema) -> Result<()> {
-        validate::validate_schema(schema, &self.options.limits)?;
-        encode::SchemaEncoder::new(&mut self.out).write_type_descriptor(&schema.root)
+        let schema_bytes = encode::encode_schema_with_options(schema, self.options)?;
+        self.out.extend_from_slice(&schema_bytes);
+        Ok(())
     }
 
     pub fn encode_value(&mut self, schema: &Schema, value: &TpackValue<'_>) -> Result<()> {
@@ -959,5 +979,31 @@ mod tests {
             },
         ]);
         assert!(encode_message(&schema, &value, EnvelopeMode::FullSchema, None).is_err());
+    }
+
+    #[test]
+    fn encode_schema_helper_rejects_oversized_serialized_schema() {
+        let schema = Schema::new(TypeDescriptor::Struct(vec![Field::new(
+            1,
+            "schema_name",
+            TypeDescriptor::Null,
+        )]));
+        let schema_len = encode::encode_schema_with_options(&schema, EncodeOptions::default())
+            .expect("encode schema")
+            .len();
+        let options = EncodeOptions {
+            limits: Limits {
+                max_schema_len: schema_len - 1,
+                ..Limits::default()
+            },
+            ..EncodeOptions::default()
+        };
+
+        assert!(matches!(
+            encode::encode_schema_with_options(&schema, options)
+                .unwrap_err()
+                .kind(),
+            ErrorKind::SchemaLengthExceeded
+        ));
     }
 }

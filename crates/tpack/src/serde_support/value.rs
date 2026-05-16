@@ -11,11 +11,31 @@ use super::error::Error;
 pub(super) struct ValueDeserializer<'a, 'de> {
     ty: &'a TypeDescriptor,
     value: TpackValue<'de>,
+    remaining_depth: usize,
 }
 
 impl<'a, 'de> ValueDeserializer<'a, 'de> {
-    pub(super) fn new(ty: &'a TypeDescriptor, value: TpackValue<'de>) -> Self {
-        Self { ty, value }
+    pub(super) fn new(
+        ty: &'a TypeDescriptor,
+        value: TpackValue<'de>,
+        remaining_depth: usize,
+    ) -> Self {
+        Self {
+            ty,
+            value,
+            remaining_depth,
+        }
+    }
+
+    pub(super) fn child(
+        ty: &'a TypeDescriptor,
+        value: TpackValue<'de>,
+        remaining_depth: usize,
+    ) -> Result<Self, Error> {
+        let remaining_depth = remaining_depth
+            .checked_sub(1)
+            .ok_or_else(|| Error::limit("value depth"))?;
+        Ok(Self::new(ty, value, remaining_depth))
     }
 }
 
@@ -267,9 +287,11 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
         };
         match self.value {
             TpackValue::Optional(None) => visitor.visit_none(),
-            TpackValue::Optional(Some(value)) => {
-                visitor.visit_some(ValueDeserializer::new(inner, *value))
-            }
+            TpackValue::Optional(Some(value)) => visitor.visit_some(ValueDeserializer::child(
+                inner,
+                *value,
+                self.remaining_depth,
+            )?),
             _ => Err(Error::type_mismatch(self.ty)),
         }
     }
@@ -301,33 +323,49 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
     {
         match (self.ty, self.value) {
             (TypeDescriptor::Decimal, TpackValue::Decimal(value)) => {
-                visitor.visit_seq(SeqValueAccess::new_synthetic(vec![
-                    (TypeDescriptor::I64, TpackValue::I64(value.scale)),
-                    (TypeDescriptor::I64, TpackValue::I64(value.coefficient)),
-                ]))
+                visitor.visit_seq(SeqValueAccess::new_synthetic(
+                    vec![
+                        (TypeDescriptor::I64, TpackValue::I64(value.scale)),
+                        (TypeDescriptor::I64, TpackValue::I64(value.coefficient)),
+                    ],
+                    self.remaining_depth,
+                ))
             }
             (TypeDescriptor::DecimalFixed { .. }, TpackValue::DecimalFixed(value)) => {
                 visitor.visit_i64(value)
             }
             (TypeDescriptor::DateTime, TpackValue::DateTime { days, nanos }) => {
-                visitor.visit_seq(SeqValueAccess::new_synthetic(vec![
-                    (TypeDescriptor::I64, TpackValue::I64(days)),
-                    (TypeDescriptor::U64, TpackValue::U64(nanos)),
-                ]))
+                visitor.visit_seq(SeqValueAccess::new_synthetic(
+                    vec![
+                        (TypeDescriptor::I64, TpackValue::I64(days)),
+                        (TypeDescriptor::U64, TpackValue::U64(nanos)),
+                    ],
+                    self.remaining_depth,
+                ))
             }
             (TypeDescriptor::Duration, TpackValue::Duration(value)) => {
-                visitor.visit_seq(SeqValueAccess::new_synthetic(vec![
-                    (TypeDescriptor::I64, TpackValue::I64(value.seconds)),
-                    (TypeDescriptor::I64, TpackValue::I64(value.nanos)),
-                ]))
+                visitor.visit_seq(SeqValueAccess::new_synthetic(
+                    vec![
+                        (TypeDescriptor::I64, TpackValue::I64(value.seconds)),
+                        (TypeDescriptor::I64, TpackValue::I64(value.nanos)),
+                    ],
+                    self.remaining_depth,
+                ))
             }
             (TypeDescriptor::CalendarInterval, TpackValue::CalendarInterval(value)) => visitor
-                .visit_seq(SeqValueAccess::new_synthetic(vec![
-                    (TypeDescriptor::I64, TpackValue::I64(value.months)),
-                    (TypeDescriptor::I64, TpackValue::I64(value.days)),
-                    (TypeDescriptor::I64, TpackValue::I64(value.nanos)),
-                ])),
-            (ty, value) => visitor.visit_newtype_struct(ValueDeserializer::new(ty, value)),
+                .visit_seq(SeqValueAccess::new_synthetic(
+                    vec![
+                        (TypeDescriptor::I64, TpackValue::I64(value.months)),
+                        (TypeDescriptor::I64, TpackValue::I64(value.days)),
+                        (TypeDescriptor::I64, TpackValue::I64(value.nanos)),
+                    ],
+                    self.remaining_depth,
+                )),
+            (ty, value) => visitor.visit_newtype_struct(ValueDeserializer::new(
+                ty,
+                value,
+                self.remaining_depth,
+            )),
         }
     }
 
@@ -337,11 +375,11 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
     {
         match (self.ty, self.value) {
             (TypeDescriptor::List { element, .. }, TpackValue::List(values)) => {
-                visitor.visit_seq(SeqValueAccess::new(element, values))
+                visitor.visit_seq(SeqValueAccess::new(element, values, self.remaining_depth))
             }
-            (TypeDescriptor::Struct(fields), TpackValue::Struct(values)) => {
-                visitor.visit_seq(StructTupleAccess::new(fields, values)?)
-            }
+            (TypeDescriptor::Struct(fields), TpackValue::Struct(values)) => visitor.visit_seq(
+                StructTupleAccess::new(fields, values, self.remaining_depth)?,
+            ),
             _ => Err(Error::type_mismatch(self.ty)),
         }
     }
@@ -371,11 +409,15 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
     {
         match (self.ty, self.value) {
             (TypeDescriptor::Struct(fields), TpackValue::Struct(values)) => {
-                visitor.visit_map(StructAccess::new(fields, values)?)
+                visitor.visit_map(StructAccess::new(fields, values, self.remaining_depth)?)
             }
-            (TypeDescriptor::Map { key, value, .. }, TpackValue::Map(entries)) => {
-                visitor.visit_map(MapValueAccess::new(key, value, entries))
-            }
+            (TypeDescriptor::Map { key, value, .. }, TpackValue::Map(entries)) => visitor
+                .visit_map(MapValueAccess::new(
+                    key,
+                    value,
+                    entries,
+                    self.remaining_depth,
+                )),
             _ => Err(Error::type_mismatch(self.ty)),
         }
     }
@@ -418,6 +460,7 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
                     &variant.name,
                     &variant.ty,
                     *value,
+                    self.remaining_depth,
                 ))
             }
             _ => Err(Error::type_mismatch(self.ty)),

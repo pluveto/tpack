@@ -18,6 +18,9 @@ pub(in crate::codec) fn encode_schema_with_options(
     validate_schema(schema, &options.limits)?;
     let mut out = Vec::new();
     SchemaEncoder::new(&mut out).write_type_descriptor(&schema.root)?;
+    if out.len() > options.limits.max_schema_len {
+        return Err(Error::new(ErrorKind::SchemaLengthExceeded));
+    }
     Ok(out)
 }
 

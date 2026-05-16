@@ -1,0 +1,56 @@
+#![cfg(feature = "serde_support")]
+
+use tpack::{ErrorKind, Limits, Schema, TpackValue, TypeDescriptor};
+
+fn nested_list_schema(levels: usize) -> Schema {
+    let mut ty = TypeDescriptor::U8;
+    for _ in 0..levels {
+        ty = TypeDescriptor::List {
+            element: Box::new(ty),
+            max_count: None,
+        };
+    }
+    Schema::new(ty)
+}
+
+fn nested_list_value(levels: usize) -> TpackValue<'static> {
+    let mut value = TpackValue::U8(7);
+    for _ in 0..levels {
+        value = TpackValue::List(vec![value]);
+    }
+    value
+}
+
+#[test]
+fn shallow_value_deserializes_within_depth_limit() {
+    let schema = nested_list_schema(2);
+    let value = nested_list_value(2);
+    let limits = Limits {
+        max_depth: 2,
+        ..Limits::default()
+    };
+
+    let decoded: Vec<Vec<u8>> =
+        tpack::serde_support::from_value_with_limits(&schema, value, limits).unwrap();
+
+    assert_eq!(decoded, vec![vec![7]]);
+}
+
+#[test]
+fn deep_value_is_rejected_when_depth_limit_is_exceeded() {
+    let schema = nested_list_schema(2);
+    let value = nested_list_value(2);
+    let limits = Limits {
+        max_depth: 1,
+        ..Limits::default()
+    };
+
+    let error =
+        tpack::serde_support::from_value_with_limits::<Vec<Vec<u8>>>(&schema, value, limits)
+            .unwrap_err();
+
+    assert!(matches!(
+        error.kind(),
+        ErrorKind::LimitExceeded("value depth")
+    ));
+}

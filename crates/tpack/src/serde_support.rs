@@ -3,7 +3,7 @@ mod error;
 mod value;
 
 use serde::de::Deserialize;
-use tpack_core::{Decoder, Schema, SchemaRegistry, TpackValue};
+use tpack_core::{Decoder, Limits, Schema, SchemaRegistry, TpackValue};
 
 use self::error::Error;
 use self::value::ValueDeserializer;
@@ -29,5 +29,21 @@ pub fn from_value<'de, T>(schema: &Schema, value: TpackValue<'de>) -> tpack_core
 where
     T: Deserialize<'de>,
 {
-    T::deserialize(ValueDeserializer::new(&schema.root, value)).map_err(Error::into_core)
+    from_value_with_limits(schema, value, Limits::default())
+}
+
+pub fn from_value_with_limits<'de, T>(
+    schema: &Schema,
+    value: TpackValue<'de>,
+    limits: Limits,
+) -> tpack_core::Result<T>
+where
+    T: Deserialize<'de>,
+{
+    T::deserialize(ValueDeserializer::new(
+        &schema.root,
+        value,
+        limits.max_depth,
+    ))
+    .map_err(Error::into_core)
 }

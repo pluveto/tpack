@@ -16,9 +16,9 @@ For low-latency use cases, prefer the native traits and a schema registry that c
 
 `StdSchemaRegistry` follows a fail-closed rule at insert time: `insert` / `insert_shared` reject rebinding the same `SchemaId` to different schema content and preserve the existing binding. Callers that need to override a binding can opt into `replace` / `replace_shared`.
 
-`recommended_schema_id_sha256(&schema)` returns a bare 32-byte digest from `encode_schema(&schema)`.
-
-`recommended_schema_id_xxh64_v1(&schema)` returns a fixed 8-byte big-endian `SchemaId`.
+`recommended_schema_id_xxh64_v1(&schema)` returns the official helper for
+the repository's `xxh64-v1` profile: a fixed 8-byte big-endian
+`SchemaId` derived from `encode_schema(&schema)`.
 
 Current conformance boundary:
 
@@ -38,6 +38,6 @@ The serde bridge is available when the `serde_support` feature is enabled.
 - root `test-vectors/` contains the public example vectors
 - `crates/tpack/tests/reference.rs` validates the draft example bytes
 - `crates/tpack/tests/cache_validation.rs` covers default cache-hit
-  validation and the explicit opt-out path
+  validation, collision handling, and the explicit opt-out path
 - root `docs/implementation-status.md` tracks the current executable
   reference boundary

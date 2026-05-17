@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use tpack::{
     CanonicalMode, DecodeOptions, Decoder, EncodeOptions, EnvelopeMode, ErrorKind, Field, Schema,
     TpackValue, TypeDescriptor, ValueMapEntry, Variant, encode_message, encode_schema,
-    recommended_schema_id_sha256, recommended_schema_id_xxh64_v1,
+    recommended_schema_id_xxh64_v1,
 };
 
 mod reference_cases {
@@ -85,14 +85,6 @@ mod reference_cases {
             recommended_schema_id_xxh64_v1(&schema).unwrap(),
             [0x23, 0x73, 0x76, 0xF7, 0x21, 0xB6, 0x0A, 0x41]
         );
-        assert_eq!(
-            recommended_schema_id_sha256(&schema).unwrap(),
-            [
-                0x0C, 0x88, 0x7E, 0x5F, 0xBF, 0x1C, 0xC6, 0xDC, 0x1F, 0x9F, 0x94, 0x54, 0x87, 0xE9,
-                0xE9, 0xB7, 0x9E, 0x81, 0xBF, 0xFD, 0xBE, 0x2F, 0xCD, 0x73, 0x97, 0x86, 0xBC, 0x07,
-                0x0B, 0x89, 0xCB, 0x45,
-            ]
-        );
     }
 
     #[cfg(feature = "std")]
@@ -100,7 +92,6 @@ mod reference_cases {
     fn schema_id_helpers_depend_on_canonical_descriptor_bytes_only() {
         let schema = flat_schema();
         let xxh64 = recommended_schema_id_xxh64_v1(&schema).unwrap();
-        let sha256 = recommended_schema_id_sha256(&schema).unwrap();
 
         let mut noncanonical_schema_bytes = encode_schema(&schema).unwrap();
         assert_eq!(noncanonical_schema_bytes[0], 0x20);
@@ -115,10 +106,6 @@ mod reference_cases {
         assert_eq!(
             recommended_schema_id_xxh64_v1(&decoded_from_noncanonical).unwrap(),
             xxh64
-        );
-        assert_eq!(
-            recommended_schema_id_sha256(&decoded_from_noncanonical).unwrap(),
-            sha256
         );
     }
 

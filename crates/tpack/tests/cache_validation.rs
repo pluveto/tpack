@@ -1,7 +1,6 @@
 use tpack::{
     DecodeOptions, Decoder, EnvelopeMode, ErrorKind, Field, Schema, StdSchemaRegistry, TpackValue,
-    TypeDescriptor, encode_message, encode_schema, recommended_schema_id_sha256,
-    recommended_schema_id_xxh64_v1,
+    TypeDescriptor, encode_message, encode_schema, recommended_schema_id_xxh64_v1,
 };
 
 fn cached_schema() -> Schema {
@@ -104,41 +103,6 @@ fn cache_hit_rejects_mismatched_embedded_schema_even_when_it_is_well_formed() {
 }
 
 #[test]
-fn recommended_sha256_schema_id_still_requires_embedded_schema_validation() {
-    let schema = cached_schema();
-    let value = cached_value();
-    let schema_bytes = encode_schema(&schema).expect("encode schema");
-    let schema_id = recommended_schema_id_sha256(&schema).expect("derive schema id");
-    let mut bytes = full_schema_with_id_bytes(&schema_id);
-    let schema_range = embedded_schema_range(&bytes, schema_id.len(), schema_bytes.len());
-    bytes[schema_range.end - 1] = 0x05;
-
-    let registry = StdSchemaRegistry::new();
-    registry.insert(schema_id.to_vec(), schema.clone()).unwrap();
-
-    let mut decoder = Decoder::new(&bytes);
-    assert!(matches!(
-        decoder
-            .decode_message_with_registry(&registry)
-            .unwrap_err()
-            .kind(),
-        ErrorKind::EmbeddedSchemaMismatch
-    ));
-
-    let mut decoder = Decoder::with_options(
-        &bytes,
-        DecodeOptions {
-            validate_embedded_schema_on_cache_hit: false,
-            ..DecodeOptions::default()
-        },
-    );
-    let decoded = decoder.decode_message_with_registry(&registry).unwrap();
-    assert!(decoded.envelope.used_cached_schema);
-    assert_eq!(decoded.schema.as_ref(), &schema);
-    assert_eq!(decoded.value, value);
-}
-
-#[test]
 fn recommended_xxh64_v1_schema_id_still_requires_embedded_schema_validation() {
     let schema = cached_schema();
     let value = cached_value();
@@ -195,7 +159,7 @@ fn custom_schema_id_derived_from_encoded_schema_bytes_is_accepted() {
 #[test]
 fn full_schema_with_id_cache_hit_fails_closed_on_local_schema_id_collision() {
     let schema = cached_schema();
-    let schema_id = recommended_schema_id_sha256(&schema).expect("derive schema id");
+    let schema_id = recommended_schema_id_xxh64_v1(&schema).expect("derive schema id");
     let bytes = full_schema_with_id_bytes(&schema_id);
 
     let registry = StdSchemaRegistry::new();
@@ -218,7 +182,7 @@ fn full_schema_with_id_cache_hit_fails_closed_on_local_schema_id_collision() {
 #[test]
 fn std_registry_rejects_conflicting_insert_and_preserves_existing_binding() {
     let schema = cached_schema();
-    let schema_id = recommended_schema_id_sha256(&schema).expect("derive schema id");
+    let schema_id = recommended_schema_id_xxh64_v1(&schema).expect("derive schema id");
     let registry = StdSchemaRegistry::new();
     registry.insert(schema_id.to_vec(), schema.clone()).unwrap();
 

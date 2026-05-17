@@ -37,27 +37,26 @@ envelope layout, schema descriptors, data ordering, and canonical byte
 rules, while the full unbounded numeric semantics described by the draft
 remain outside the current value model.
 
-The Rust API now exposes both documented helper placements:
+The Rust API exposes one official helper profile:
 
-- `tpack_core::recommended_schema_id_xxh64_v1` for the compact
-  `xxh64-v1` profile, defined as `xxHash64(seed=0)` over the canonical
-  schema descriptor bytes with a fixed 8-byte big-endian output
-- `tpack::recommended_schema_id_sha256` for the open-interoperability
-  SHA-256 profile over the same canonical schema descriptor bytes
+- `tpack_core::recommended_schema_id_xxh64_v1`, re-exported by `tpack`,
+  for the compact `xxh64-v1` profile, defined as
+  `xxHash64(seed=0)` over the canonical schema descriptor bytes with a
+  fixed 8-byte big-endian output
 
-Both helpers leave cache namespace and registry binding authentication to
-the embedding application.
+This helper still leaves cache namespace and registry binding
+authentication to the embedding application.
 
 The current decoder already fails closed on `FullSchemaWithId` cache-hit
 conflicts: if a registry entry exists for a `SchemaId` and the embedded
 schema decodes differently, decode fails with
 `EmbeddedSchemaMismatch` instead of replacing the binding.
 
-For constrained-device or local profiles that use `xxh64-v1`, another
-faster hash, or a locally assigned `SchemaId`, the core codec still
-only sees opaque bytes. Scope, reset behavior, and `SchemaRef`
-admissibility remain deployment policy outside the codec. Those
-profiles must stay fail-closed on ambiguity, stale bindings, or
+For deployments that use `xxh64-v1`, another agreed profile, or a
+locally assigned `SchemaId`, the core codec still only sees opaque
+bytes. Scope, reset behavior, and `SchemaRef` admissibility remain
+deployment policy outside the codec. Those deployments must stay
+fail-closed on ambiguity, stale bindings, lost binding scope, or
 observed collisions.
 
 ## Deliberately Not Changed In This Sync

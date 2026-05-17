@@ -8,6 +8,13 @@ use tpack::{
 mod reference_cases {
     use super::*;
 
+    fn decode_hex_bytes(source: &str) -> Vec<u8> {
+        source
+            .split_whitespace()
+            .map(|octet| u8::from_str_radix(octet, 16).expect("vector must contain valid hex"))
+            .collect()
+    }
+
     #[cfg(feature = "std")]
     fn flat_schema() -> Schema {
         Schema::new(TypeDescriptor::Struct(vec![
@@ -44,38 +51,33 @@ mod reference_cases {
     }
 
     fn draft_flat_full_schema_hex() -> Vec<u8> {
-        vec![
-            0x54, 0x50, 0x41, 0x4B, 0x01, 0x00, 0x28, 0x20, 0x05, 0x01, 0x02, 0x69, 0x64, 0x00,
-            0x0E, 0x40, 0x02, 0x05, 0x70, 0x72, 0x69, 0x63, 0x65, 0x00, 0x0D, 0x12, 0x04, 0x03,
-            0x03, 0x74, 0x61, 0x78, 0x00, 0x0C, 0x04, 0x03, 0x71, 0x74, 0x79, 0x00, 0x04, 0x05,
-            0x02, 0x74, 0x73, 0x00, 0x05, 0x08, 0x70, 0x72, 0x6F, 0x64, 0x5F, 0x30, 0x30, 0x31,
-            0xB8, 0x99, 0xEE, 0x02, 0x06, 0xBA, 0xD6, 0x01, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00,
-            0x00, 0x00, 0x66, 0x38, 0xD2, 0xC0,
-        ]
+        decode_hex_bytes(include_str!(
+            "../../../test-vectors/v1/draft-00/flat-record/full-schema.hex"
+        ))
     }
 
     #[cfg(feature = "std")]
     fn draft_flat_with_id_hex() -> Vec<u8> {
-        let mut bytes = vec![
-            0x54, 0x50, 0x41, 0x4B, 0x01, 0x01, 0x11, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65,
-            0x2E, 0x72, 0x65, 0x63, 0x6F, 0x72, 0x64, 0x2E, 0x76, 0x31, 0x28,
-        ];
-        bytes.extend_from_slice(&draft_flat_full_schema_hex()[7..]);
-        bytes
+        decode_hex_bytes(include_str!(
+            "../../../test-vectors/v1/draft-00/flat-record/full-schema-with-id.hex"
+        ))
     }
 
     fn draft_flat_schema_ref_hex() -> Vec<u8> {
-        let mut bytes = vec![
-            0x54, 0x50, 0x41, 0x4B, 0x01, 0x02, 0x11, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65,
-            0x2E, 0x72, 0x65, 0x63, 0x6F, 0x72, 0x64, 0x2E, 0x76, 0x31,
-        ];
-        bytes.extend_from_slice(&draft_flat_full_schema_hex()[47..]);
-        bytes
+        decode_hex_bytes(include_str!(
+            "../../../test-vectors/v1/draft-00/flat-record/schema-ref.hex"
+        ))
+    }
+
+    fn noncanonical_map_order_hex() -> Vec<u8> {
+        decode_hex_bytes(include_str!(
+            "../../../test-vectors/v1/reference/noncanonical-map-order/full-schema.hex"
+        ))
     }
 
     #[cfg(feature = "std")]
     #[test]
-    fn draft_section_12_envelopes_decode_and_canonicalize() {
+    fn draft_examples_envelopes_decode_and_canonicalize() {
         let schema = flat_schema();
         let value = flat_value();
         assert_eq!(
@@ -184,7 +186,11 @@ mod reference_cases {
                 value: TpackValue::I32(1),
             },
         ]);
-        let bytes = encode_message(&schema, &value, EnvelopeMode::FullSchema, None).unwrap();
+        let bytes = noncanonical_map_order_hex();
+        assert_eq!(
+            encode_message(&schema, &value, EnvelopeMode::FullSchema, None).unwrap(),
+            bytes
+        );
         let mut decoder = Decoder::with_options(
             &bytes,
             DecodeOptions {

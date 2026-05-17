@@ -8,6 +8,8 @@ TPACK is a strictly typed, self-describing binary serialization format. This rep
 
 The design target is simple: keep decoding deterministic, schema-aware, and low-overhead without requiring out-of-band `.proto` files or a separate schema negotiation protocol.
 
+The intended positioning is narrower than "generic binary format for everything". TPACK defaults to one self-contained typed value per message, with the complete schema carried on the wire unless a cached-schema profile is explicitly in use. That makes it closer to schema-carrying interchange than to Avro single-object encoding, Arrow IPC batches, or CBOR values validated against a separate CDDL schema.
+
 ## Workspace Layout
 
 The workspace is split by responsibility:
@@ -35,6 +37,10 @@ Envelope modes:
 
 `SchemaRef` requires an active registry entry.
 
+The format name is `TPACK`, while the v1 wire magic is the fixed 4-byte marker `TPAK`. This repository keeps that marker intentionally for the current draft line so the draft text, examples, tests, and implementation stay wire-compatible. The project does not currently rename the magic just to align spelling.
+
+`SchemaId` remains opaque in the core format. For uncoordinated deployments that do not already have a registry convention, the recommended profile is to hash the canonical schema descriptor bytes and use that digest as the `SchemaId`. This is a recommendation for interoperability, not a core wire requirement.
+
 ## What The Core Guarantees
 
 - Single-pass parsing after the active schema is available
@@ -44,6 +50,19 @@ Envelope modes:
 - Shared schema size limits on both decode and encode paths
 - No dependency on host-language object layout
 
+## Current Conformance Boundary
+
+This repository is the Rust reference implementation for the envelope layout, schema encoding, validation rules, canonicalization behavior, and the example vectors in the Internet-Draft.
+
+The draft data model defines `Decimal`, `BigInt`, and `BigUInt` as arbitrary-precision types. The current Rust value model does not fully implement that boundary yet:
+
+- `Decimal` currently uses `i64` scale and `i64` coefficient
+- `Decimal(P,S)` currently uses an `i64` coefficient
+- `BigInt` currently maps to `i64`
+- `BigUInt` currently maps to `u64`
+
+That means the current implementation is a conforming executable reference only for messages whose values fit inside those ranges. This is an implementation boundary, not a wire-format redesign signal.
+
 ## Verification
 
 ```bash
@@ -51,6 +70,11 @@ cargo fmt --all --check
 cargo clippy --workspace --all-features --all-targets -- -D warnings
 cargo test --workspace --all-features
 ```
+
+Public interoperability vectors live under `test-vectors/` and are
+consumed directly by `crates/tpack/tests/reference.rs`. The current
+reference-implementation boundary is summarized in
+`docs/implementation-status.md`.
 
 Additional repository checks are defined in `deny.toml`, `typos.toml`, and the GitHub Actions workflows.
 

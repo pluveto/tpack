@@ -61,51 +61,51 @@ Internet-Draft                    TPACK                         May 2026
 Table of Contents
 
    1.  Introduction  . . . . . . . . . . . . . . . . . . . . . . . .   3
-   2.  Conventions and Terminology . . . . . . . . . . . . . . . . .   4
-   3.  Design Goals and Non-Goals  . . . . . . . . . . . . . . . . .   5
-   4.  Data Model  . . . . . . . . . . . . . . . . . . . . . . . . .   6
-   5.  Wire Format . . . . . . . . . . . . . . . . . . . . . . . . .   7
-     5.1.  Overall Message Structure . . . . . . . . . . . . . . . .   7
-     5.2.  Header  . . . . . . . . . . . . . . . . . . . . . . . . .   8
-     5.3.  Envelope Modes  . . . . . . . . . . . . . . . . . . . . .   8
-     5.4.  Schema Identifiers  . . . . . . . . . . . . . . . . . . .   9
-     5.5.  Schema Skipping . . . . . . . . . . . . . . . . . . . . .  10
-     5.6.  Unsigned Variable-Length Integer  . . . . . . . . . . . .  10
-     5.7.  Signed Variable-Length Integer  . . . . . . . . . . . . .  11
-     5.8.  Text String Component . . . . . . . . . . . . . . . . . .  11
-     5.9.  Byte String Component . . . . . . . . . . . . . . . . . .  11
-   6.  Schema Block  . . . . . . . . . . . . . . . . . . . . . . . .  11
-     6.1.  Type Descriptor Encoding  . . . . . . . . . . . . . . . .  12
-     6.2.  Type Tag Registry . . . . . . . . . . . . . . . . . . . .  12
-     6.3.  Primitive Type Descriptors  . . . . . . . . . . . . . . .  14
-     6.4.  Parameterized Type Descriptors  . . . . . . . . . . . . .  14
-       6.4.1.  Decimal(P,S)  . . . . . . . . . . . . . . . . . . . .  14
-       6.4.2.  String(N) . . . . . . . . . . . . . . . . . . . . . .  14
-       6.4.3.  Bytes(N)  . . . . . . . . . . . . . . . . . . . . . .  14
-       6.4.4.  Timestamp(P)  . . . . . . . . . . . . . . . . . . . .  15
-     6.5.  Structural Type Descriptors . . . . . . . . . . . . . . .  15
-       6.5.1.  Struct  . . . . . . . . . . . . . . . . . . . . . . .  15
-       6.5.2.  List  . . . . . . . . . . . . . . . . . . . . . . . .  16
-       6.5.3.  Map . . . . . . . . . . . . . . . . . . . . . . . . .  16
-       6.5.4.  Union . . . . . . . . . . . . . . . . . . . . . . . .  17
-       6.5.5.  Enum  . . . . . . . . . . . . . . . . . . . . . . . .  17
-       6.5.6.  Optional  . . . . . . . . . . . . . . . . . . . . . .  17
-     6.6.  Extension Type Descriptor . . . . . . . . . . . . . . . .  18
-   7.  Data Block  . . . . . . . . . . . . . . . . . . . . . . . . .  18
-     7.1.  General Rule  . . . . . . . . . . . . . . . . . . . . . .  18
-     7.2.  Primitive Values  . . . . . . . . . . . . . . . . . . . .  18
-     7.3.  Decimal Values  . . . . . . . . . . . . . . . . . . . . .  19
-     7.4.  Text and Byte Values  . . . . . . . . . . . . . . . . . .  20
-     7.5.  Temporal Values . . . . . . . . . . . . . . . . . . . . .  20
-     7.6.  Big Integer Values  . . . . . . . . . . . . . . . . . . .  21
-     7.7.  Structural Values . . . . . . . . . . . . . . . . . . . .  21
-       7.7.1.  Struct Values . . . . . . . . . . . . . . . . . . . .  21
-       7.7.2.  List Values . . . . . . . . . . . . . . . . . . . . .  22
-       7.7.3.  Map Values  . . . . . . . . . . . . . . . . . . . . .  22
-       7.7.4.  Union Values  . . . . . . . . . . . . . . . . . . . .  22
-       7.7.5.  Enum Values . . . . . . . . . . . . . . . . . . . . .  23
-       7.7.6.  Optional Values . . . . . . . . . . . . . . . . . . .  23
-   8.  Validation Rules  . . . . . . . . . . . . . . . . . . . . . .  23
+   2.  Positioning Relative to Existing Formats  . . . . . . . . . .   4
+   3.  Conventions and Terminology . . . . . . . . . . . . . . . . .   5
+   4.  Design Goals and Non-Goals  . . . . . . . . . . . . . . . . .   6
+   5.  Data Model  . . . . . . . . . . . . . . . . . . . . . . . . .   7
+   6.  Wire Format . . . . . . . . . . . . . . . . . . . . . . . . .   8
+     6.1.  Overall Message Structure . . . . . . . . . . . . . . . .   8
+     6.2.  Header  . . . . . . . . . . . . . . . . . . . . . . . . .   9
+     6.3.  Envelope Modes  . . . . . . . . . . . . . . . . . . . . .  10
+     6.4.  Schema Identifiers  . . . . . . . . . . . . . . . . . . .  11
+       6.4.1.  Recommended Convention for Uncoordinated
+               Deployments . . . . . . . . . . . . . . . . . . . . .  11
+     6.5.  Schema Skipping . . . . . . . . . . . . . . . . . . . . .  12
+     6.6.  Unsigned Variable-Length Integer  . . . . . . . . . . . .  12
+     6.7.  Signed Variable-Length Integer  . . . . . . . . . . . . .  13
+     6.8.  Text String Component . . . . . . . . . . . . . . . . . .  13
+     6.9.  Byte String Component . . . . . . . . . . . . . . . . . .  13
+   7.  Schema Block  . . . . . . . . . . . . . . . . . . . . . . . .  13
+     7.1.  Type Descriptor Encoding  . . . . . . . . . . . . . . . .  14
+     7.2.  Type Tag Registry . . . . . . . . . . . . . . . . . . . .  14
+     7.3.  Primitive Type Descriptors  . . . . . . . . . . . . . . .  16
+     7.4.  Parameterized Type Descriptors  . . . . . . . . . . . . .  16
+       7.4.1.  Decimal(P,S)  . . . . . . . . . . . . . . . . . . . .  16
+       7.4.2.  String(N) . . . . . . . . . . . . . . . . . . . . . .  16
+       7.4.3.  Bytes(N)  . . . . . . . . . . . . . . . . . . . . . .  16
+       7.4.4.  Timestamp(P)  . . . . . . . . . . . . . . . . . . . .  17
+     7.5.  Structural Type Descriptors . . . . . . . . . . . . . . .  17
+       7.5.1.  Struct  . . . . . . . . . . . . . . . . . . . . . . .  17
+       7.5.2.  List  . . . . . . . . . . . . . . . . . . . . . . . .  18
+       7.5.3.  Map . . . . . . . . . . . . . . . . . . . . . . . . .  18
+       7.5.4.  Union . . . . . . . . . . . . . . . . . . . . . . . .  19
+       7.5.5.  Enum  . . . . . . . . . . . . . . . . . . . . . . . .  19
+       7.5.6.  Optional  . . . . . . . . . . . . . . . . . . . . . .  19
+     7.6.  Extension Type Descriptor . . . . . . . . . . . . . . . .  20
+   8.  Data Block  . . . . . . . . . . . . . . . . . . . . . . . . .  20
+     8.1.  General Rule  . . . . . . . . . . . . . . . . . . . . . .  20
+     8.2.  Primitive Values  . . . . . . . . . . . . . . . . . . . .  20
+     8.3.  Decimal Values  . . . . . . . . . . . . . . . . . . . . .  21
+     8.4.  Text and Byte Values  . . . . . . . . . . . . . . . . . .  22
+     8.5.  Temporal Values . . . . . . . . . . . . . . . . . . . . .  22
+     8.6.  Big Integer Values  . . . . . . . . . . . . . . . . . . .  23
+     8.7.  Structural Values . . . . . . . . . . . . . . . . . . . .  23
+       8.7.1.  Struct Values . . . . . . . . . . . . . . . . . . . .  23
+       8.7.2.  List Values . . . . . . . . . . . . . . . . . . . . .  24
+       8.7.3.  Map Values  . . . . . . . . . . . . . . . . . . . . .  24
+       8.7.4.  Union Values  . . . . . . . . . . . . . . . . . . . .  24
 
 
 
@@ -114,22 +114,29 @@ Zhang                   Expires 17 November 2026                [Page 2]
 Internet-Draft                    TPACK                         May 2026
 
 
-   9.  Canonical Encoding  . . . . . . . . . . . . . . . . . . . . .  24
-   10. Schema Evolution and Unknown Data . . . . . . . . . . . . . .  25
-   11. Cached Schema Profile and Framing . . . . . . . . . . . . . .  26
-   12. Examples  . . . . . . . . . . . . . . . . . . . . . . . . . .  27
-     12.1.  Flat Record with Decimal Values  . . . . . . . . . . . .  27
-     12.2.  Nested Structure . . . . . . . . . . . . . . . . . . . .  28
-     12.3.  Union Value  . . . . . . . . . . . . . . . . . . . . . .  29
-     12.4.  FullSchemaWithId Envelope  . . . . . . . . . . . . . . .  29
-     12.5.  SchemaRef Envelope . . . . . . . . . . . . . . . . . . .  30
-   13. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  30
-   14. Security Considerations . . . . . . . . . . . . . . . . . . .  31
-   15. Normative References  . . . . . . . . . . . . . . . . . . . .  32
-   Appendix A.  Rationale  . . . . . . . . . . . . . . . . . . . . .  32
-   Appendix B.  Implementation Notes . . . . . . . . . . . . . . . .  33
-   Appendix C.  Acknowledgements . . . . . . . . . . . . . . . . . .  34
-   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  34
+       8.7.5.  Enum Values . . . . . . . . . . . . . . . . . . . . .  25
+       8.7.6.  Optional Values . . . . . . . . . . . . . . . . . . .  25
+   9.  Validation Rules  . . . . . . . . . . . . . . . . . . . . . .  25
+   10. Canonical Encoding  . . . . . . . . . . . . . . . . . . . . .  26
+   11. Schema Evolution and Unknown Data . . . . . . . . . . . . . .  27
+   12. Cached Schema Profile and Framing . . . . . . . . . . . . . .  28
+   13. Implementation Status and Conformance Boundary  . . . . . . .  29
+   14. Test Vectors  . . . . . . . . . . . . . . . . . . . . . . . .  30
+   15. Examples  . . . . . . . . . . . . . . . . . . . . . . . . . .  31
+     15.1.  Flat Record with Decimal Values  . . . . . . . . . . . .  31
+     15.2.  Nested Structure . . . . . . . . . . . . . . . . . . . .  32
+     15.3.  Union Value  . . . . . . . . . . . . . . . . . . . . . .  33
+     15.4.  FullSchemaWithId Envelope  . . . . . . . . . . . . . . .  33
+     15.5.  SchemaRef Envelope . . . . . . . . . . . . . . . . . . .  34
+   16. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  34
+   17. Security Considerations . . . . . . . . . . . . . . . . . . .  35
+   18. References  . . . . . . . . . . . . . . . . . . . . . . . . .  36
+     18.1.  Normative References . . . . . . . . . . . . . . . . . .  36
+     18.2.  Informative References . . . . . . . . . . . . . . . . .  36
+   Appendix A.  Rationale  . . . . . . . . . . . . . . . . . . . . .  37
+   Appendix B.  Implementation Notes . . . . . . . . . . . . . . . .  38
+   Appendix C.  Acknowledgements . . . . . . . . . . . . . . . . . .  38
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  38
 
 1.  Introduction
 
@@ -156,19 +163,19 @@ Internet-Draft                    TPACK                         May 2026
    cache, or registry.  TPACK does not define how SchemaId values are
    generated, negotiated, authenticated, or registered.
 
-   This document specifies TPACK version 1.  TPACK version 1
-   deliberately does not define business-level concepts such as
-   namespace, table name, topic, collection name, database name, primary
-   key, or index.  Such concepts can be modeled as ordinary fields or
-   carried by an enclosing application protocol.  The core format
-   specified here is a general typed binary value container.
-
 
 
 Zhang                   Expires 17 November 2026                [Page 3]
 
 Internet-Draft                    TPACK                         May 2026
 
+
+   This document specifies TPACK version 1.  TPACK version 1
+   deliberately does not define business-level concepts such as
+   namespace, table name, topic, collection name, database name, primary
+   key, or index.  Such concepts can be modeled as ordinary fields or
+   carried by an enclosing application protocol.  The core format
+   specified here is a general typed binary value container.
 
    The main properties of TPACK are:
 
@@ -195,7 +202,64 @@ Internet-Draft                    TPACK                         May 2026
    *  Nested structures, lists, maps, enums, unions, optional values,
       and binary data are first-class types.
 
-2.  Conventions and Terminology
+   This repository also contains a Rust reference implementation and an
+   executable test corpus that exercise the envelope modes, canonical
+   rules, and hexadecimal examples described by this document.
+
+2.  Positioning Relative to Existing Formats
+
+   TPACK is not the first typed binary format, nor does it try to
+   replace every existing one.  Its purpose is narrower: one typed value
+   per message, with schema-aware validation at parse time, while
+   keeping self-contained messages as the default.
+
+   Avro is the closest prior art [AvroSpec].  Like TPACK, Avro avoids
+   repeating field names in every record and uses a schema to interpret
+   the data.  The main difference is where schema state lives.  Avro
+   object container files carry schema once per file, and Avro single-
+   object encoding carries a compact schema fingerprint rather than the
+
+
+
+Zhang                   Expires 17 November 2026                [Page 4]
+
+Internet-Draft                    TPACK                         May 2026
+
+
+   complete schema.  TPACK FullSchema instead carries the complete
+   binary type descriptor inside each self-contained message.  TPACK
+   therefore pays more first-message overhead than Avro single-object
+   encoding, but it does not require a pre-shared fingerprint table,
+   JSON schema text, or an external registry in the core format.  TPACK
+   SchemaRef is intentionally only a profile for deployments that
+   already have such external schema state.
+
+   Apache Arrow IPC [ArrowFormat] solves a different problem.  Arrow is
+   optimized for columnar arrays, record batches, zero-copy relocation,
+   and analytical processing.  Its primitive unit is a schema plus a
+   batch-oriented body, not one nested typed value.  TPACK does not
+   attempt Arrow's in-memory layout guarantees or vectorized scan model.
+   Instead, TPACK targets compact transport of a single typed value,
+   recursive schema trees, and immediate validation by a generic
+   decoder.
+
+   CBOR [RFC8949] plus CDDL [RFC8610] provides compact value-level self-
+   description plus a separate schema language.  That combination is
+   appropriate when applications want a flexible tagged value model and
+   apply schema validation as an additional layer.  TPACK makes a
+   different tradeoff: the active schema is part of the message or
+   cached-schema profile itself, and the data block omits repeated type
+   tags and field names once the schema is known.  TPACK therefore
+   couples schema and value more tightly than CBOR plus CDDL, while
+   giving up some of CBOR's schema-agnostic flexibility.
+
+   Protocol Buffers, FlatBuffers, and similar IDL-driven formats remain
+   good choices when deployments already depend on generated code or
+   strongly controlled schemas.  TPACK version 1 deliberately avoids
+   requiring generated code, code generation toolchains, or a registry
+   protocol in the core wire format.
+
+3.  Conventions and Terminology
 
    The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
    "SHOULD", "SHOULD NOT", "RECOMMENDED", "NOT RECOMMENDED", "MAY", and
@@ -209,6 +273,15 @@ Internet-Draft                    TPACK                         May 2026
    envelope.  Depending on the envelope mode, the envelope contains a
    complete schema and data block, or a SchemaId and data block.
 
+
+
+
+
+Zhang                   Expires 17 November 2026                [Page 5]
+
+Internet-Draft                    TPACK                         May 2026
+
+
    Schema Block: A binary type descriptor tree carried by FullSchema and
    FullSchemaWithId envelopes.
 
@@ -217,14 +290,6 @@ Internet-Draft                    TPACK                         May 2026
 
    Data Block: The encoded value whose type is described by the active
    schema.
-
-
-
-
-Zhang                   Expires 17 November 2026                [Page 4]
-
-Internet-Draft                    TPACK                         May 2026
-
 
    Type Descriptor: A binary description of one TPACK type.  Type
    descriptors may be recursive.
@@ -242,9 +307,9 @@ Internet-Draft                    TPACK                         May 2026
    Section 5.7.
 
    Canonical Encoding: The unique shortest valid byte representation of
-   a TPACK message, as defined in Section 9.
+   a TPACK message, as defined in Section 10.
 
-3.  Design Goals and Non-Goals
+4.  Design Goals and Non-Goals
 
    TPACK is designed to satisfy the following goals:
 
@@ -266,6 +331,13 @@ Internet-Draft                    TPACK                         May 2026
    *  Language neutrality.  The format does not depend on memory layout,
       object models, generated classes, or host-language integer sizes.
 
+
+
+Zhang                   Expires 17 November 2026                [Page 6]
+
+Internet-Draft                    TPACK                         May 2026
+
+
    *  Generality.  The format is not tied to JSON, SQL, document
       databases, message queues, or file storage.
 
@@ -274,13 +346,6 @@ Internet-Draft                    TPACK                         May 2026
 
    *  Implementation latitude.  Implementations may cache, pre-validate,
       or compile schemas without changing the wire format.
-
-
-
-Zhang                   Expires 17 November 2026                [Page 5]
-
-Internet-Draft                    TPACK                         May 2026
-
 
    The following are non-goals for TPACK version 1:
 
@@ -305,9 +370,9 @@ Internet-Draft                    TPACK                         May 2026
 
    *  TPACK version 1 does not define cyclic object graphs.  Directed
       graphs and cyclic references may be specified by future extensions
-      using the extension mechanism in Section 6.6.
+      using the extension mechanism in Section 7.6.
 
-4.  Data Model
+5.  Data Model
 
    A TPACK message represents exactly one typed value.  The top-level
    value MAY be any TPACK type.  Interchange formats and public APIs
@@ -322,6 +387,13 @@ Internet-Draft                    TPACK                         May 2026
 
    *  Fixed-width signed and unsigned integers.
 
+
+
+Zhang                   Expires 17 November 2026                [Page 7]
+
+Internet-Draft                    TPACK                         May 2026
+
+
    *  IEEE 754 binary floating-point numbers.
 
    *  Arbitrary-precision decimal numbers.
@@ -329,14 +401,6 @@ Internet-Draft                    TPACK                         May 2026
    *  UTF-8 text strings.
 
    *  Byte strings.
-
-
-
-
-Zhang                   Expires 17 November 2026                [Page 6]
-
-Internet-Draft                    TPACK                         May 2026
-
 
    *  Temporal values: Date, Time, DateTime, DateTimeTZ, Timestamp,
       Duration, and CalendarInterval.
@@ -359,15 +423,32 @@ Internet-Draft                    TPACK                         May 2026
    absent only when its type is Optional and the encoded presence marker
    indicates absence.  Null is an explicit value of the Null type.
 
-5.  Wire Format
+   Schema authors SHOULD use Optional(T) when a field may be omitted on
+   the wire.  They SHOULD use Null, or a Union that explicitly includes
+   Null, only when a present value may itself be null.  Optional(T) and
+   Union{Null, T} are therefore not interchangeable.  If an application
+   needs three states such as absent, explicit null, and concrete value,
+   one possible model is Optional(Union{Null, T}).
 
-5.1.  Overall Message Structure
+6.  Wire Format
+
+6.1.  Overall Message Structure
 
    A TPACK message has the following layout:
 
      +--------+----------+
      | Header | Envelope |
      +--------+----------+
+
+
+
+
+
+
+Zhang                   Expires 17 November 2026                [Page 8]
+
+Internet-Draft                    TPACK                         May 2026
+
 
    The Header is fixed length.  The Envelope begins with an EnvelopeMode
    octet.  Depending on that mode, the envelope either carries a
@@ -383,16 +464,6 @@ Internet-Draft                    TPACK                         May 2026
    Data Block begins immediately after the SchemaId.
 
    The generic grammar is:
-
-
-
-
-
-
-Zhang                   Expires 17 November 2026                [Page 7]
-
-Internet-Draft                    TPACK                         May 2026
-
 
      Message          = Header Envelope
      Header           = Magic Version
@@ -411,13 +482,13 @@ Internet-Draft                    TPACK                         May 2026
      SchemaId         = *OCTET
 
    The grammar above is descriptive.  The normative binary encodings of
-   TypeDescriptor and Value are defined in Sections 6 and 7.  SchemaLen
+   TypeDescriptor and Value are defined in Sections 7 and 8.  SchemaLen
    is the number of octets in the complete TypeDescriptor and does not
    include the SchemaLen field itself.  The Data Block length is driven
    by the schema unless an enclosing transport also provides a message
    length.
 
-5.2.  Header
+6.2.  Header
 
    The TPACK version 1 header is five octets:
 
@@ -426,11 +497,29 @@ Internet-Draft                    TPACK                         May 2026
    The first four octets are the ASCII string "TPAK".  The fifth octet
    is the version number.  This document defines version 1 only.
 
+
+
+
+
+Zhang                   Expires 17 November 2026                [Page 9]
+
+Internet-Draft                    TPACK                         May 2026
+
+
    A decoder MUST reject a message whose first four octets are not
    "TPAK".  A decoder conforming only to this document MUST reject a
    message whose version octet is not 0x01.
 
-5.3.  Envelope Modes
+   The format name is TPACK, but the version 1 wire magic is the four-
+   octet marker "TPAK".  This document intentionally keeps that marker.
+   Changing it would create a wire-incompatible revision across the
+   current draft text, examples, reference tests, and Rust
+   implementation, while providing little technical benefit beyond name
+   alignment.  In version 1, specifications and implementations SHOULD
+   therefore use "TPACK" as the format name and "TPAK" only for the
+   fixed header bytes.
+
+6.3.  Envelope Modes
 
    EnvelopeMode is one octet:
 
@@ -441,14 +530,6 @@ Internet-Draft                    TPACK                         May 2026
      | 0x01   | FullSchemaWithId | SchemaId, complete schema, data  |
      | 0x02   | SchemaRef        | SchemaId and data only           |
      +--------+------------------+----------------------------------+
-
-
-
-
-Zhang                   Expires 17 November 2026                [Page 8]
-
-Internet-Draft                    TPACK                         May 2026
-
 
    A decoder MUST reject an unknown EnvelopeMode.
 
@@ -467,7 +548,21 @@ Internet-Draft                    TPACK                         May 2026
    a cached schema profile where the receiver has already established a
    SchemaId-to-schema binding by an external mechanism.
 
-5.4.  Schema Identifiers
+
+
+
+
+
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 10]
+
+Internet-Draft                    TPACK                         May 2026
+
+
+6.4.  Schema Identifiers
 
    SchemaId is an opaque byte string.  TPACK does not define how
    SchemaId values are generated.  TPACK does not require SchemaId to be
@@ -493,20 +588,37 @@ Internet-Draft                    TPACK                         May 2026
    deployment.  TPACK core does not verify that SchemaId and Schema
    bytes match.
 
+6.4.1.  Recommended Convention for Uncoordinated Deployments
+
+   TPACK core keeps SchemaId opaque.  However, independent
+   implementations often need a default convention when no registry or
+   bilateral naming scheme already exists.
+
+   In such deployments, a sender and receiver SHOULD derive SchemaId
+   from the canonical TypeDescriptor bytes alone, excluding Header,
+   EnvelopeMode, SchemaLen, and the Data Block.  The bytes used as hash
+   input SHOULD be exactly the validated on-wire TypeDescriptor encoded
+   with shortest UVarInt forms and zero field flags.
+
+   SHA-256 is RECOMMENDED for this convention because it is widely
+   deployed and well understood.  Deployments MAY use another collision-
+   resistant hash by prior agreement, and MAY prepend an application-
+   specific prefix or algorithm identifier if they need domain
+   separation.
+
+   This convention is informative only.  It does not change the core
+   wire format, does not make SchemaId a hash by definition, and does
+   not prohibit registry-issued identifiers, stream-local identifiers,
+   or application-defined names encoded as bytes.
 
 
 
-
-
-
-
-
-Zhang                   Expires 17 November 2026                [Page 9]
+Zhang                   Expires 17 November 2026               [Page 11]
 
 Internet-Draft                    TPACK                         May 2026
 
 
-5.5.  Schema Skipping
+6.5.  Schema Skipping
 
    For FullSchemaWithId, a decoder reads SchemaIdLen and SchemaId before
    deciding how to handle the embedded schema.  If the SchemaId is found
@@ -516,6 +628,11 @@ Internet-Draft                    TPACK                         May 2026
    cached schema.  A decoder MAY validate the skipped TypeDescriptor
    against the cached schema in the background, but this specification
    does not require it.
+
+   A cached-schema profile MAY impose a stronger rule and require a
+   decoder to compare the embedded schema bytes against the cached
+   schema before the message is accepted.  Such a policy is compatible
+   with this specification and can reduce cache-confusion risk.
 
    If a FullSchemaWithId cache lookup misses, the decoder MUST read and
    validate the SchemaLen-delimited TypeDescriptor.  If validation
@@ -539,7 +656,7 @@ Internet-Draft                    TPACK                         May 2026
      SCHEMA_LENGTH_EXCEEDED
      SCHEMA_LENGTH_MISMATCH
 
-5.6.  Unsigned Variable-Length Integer
+6.6.  Unsigned Variable-Length Integer
 
    UVarInt encodes a non-negative integer using base-128 little-endian
    continuation bytes.
@@ -550,17 +667,14 @@ Internet-Draft                    TPACK                         May 2026
 
    The numeric value is:
 
-     value = sum((octet[i] & 0x7f) << (7 * i))
 
 
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 10]
+Zhang                   Expires 17 November 2026               [Page 12]
 
 Internet-Draft                    TPACK                         May 2026
 
+
+     value = sum((octet[i] & 0x7f) << (7 * i))
 
    UVarInt values MUST use the shortest possible encoding.  For example,
    zero is encoded as "00", and 128 is encoded as "80 01".  Encoders
@@ -571,7 +685,7 @@ Internet-Draft                    TPACK                         May 2026
    Implementations MAY impose a maximum UVarInt byte length for resource
    control.  Such limits MUST be documented.
 
-5.7.  Signed Variable-Length Integer
+6.7.  Signed Variable-Length Integer
 
    SVarInt encodes a signed integer using ZigZag transformation followed
    by UVarInt.
@@ -586,7 +700,7 @@ Internet-Draft                    TPACK                         May 2026
    impose local magnitude limits for resource control, but they MUST
    report a validation error rather than silently truncating values.
 
-5.8.  Text String Component
+6.8.  Text String Component
 
    A text component is encoded as:
 
@@ -597,7 +711,7 @@ Internet-Draft                    TPACK                         May 2026
    visible characters.  Decoders MUST validate UTF-8 according to
    [RFC3629].
 
-5.9.  Byte String Component
+6.9.  Byte String Component
 
    A byte string component is encoded as:
 
@@ -606,19 +720,17 @@ Internet-Draft                    TPACK                         May 2026
 
    Byte string content is uninterpreted by this specification.
 
-6.  Schema Block
+7.  Schema Block
 
 
 
 
-
-
-Zhang                   Expires 17 November 2026               [Page 11]
+Zhang                   Expires 17 November 2026               [Page 13]
 
 Internet-Draft                    TPACK                         May 2026
 
 
-6.1.  Type Descriptor Encoding
+7.1.  Type Descriptor Encoding
 
    When an envelope carries a schema block, that schema block contains
    exactly one TypeDescriptor.  That descriptor defines the type of the
@@ -637,7 +749,7 @@ Internet-Draft                    TPACK                         May 2026
    field names within a Struct, has duplicate symbols within an Enum, or
    contains invalid parameters.
 
-6.2.  Type Tag Registry
+7.2.  Type Tag Registry
 
    The following tags are defined by TPACK version 1:
 
@@ -669,7 +781,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 12]
+Zhang                   Expires 17 November 2026               [Page 14]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -725,12 +837,12 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 13]
+Zhang                   Expires 17 November 2026               [Page 15]
 
 Internet-Draft                    TPACK                         May 2026
 
 
-6.3.  Primitive Type Descriptors
+7.3.  Primitive Type Descriptors
 
    The following tags have no schema parameters:
 
@@ -740,9 +852,9 @@ Internet-Draft                    TPACK                         May 2026
 
    Their TypeDescriptor is exactly one octet: the type tag.
 
-6.4.  Parameterized Type Descriptors
+7.4.  Parameterized Type Descriptors
 
-6.4.1.  Decimal(P,S)
+7.4.1.  Decimal(P,S)
 
    Decimal(P,S) is encoded as:
 
@@ -763,7 +875,7 @@ Internet-Draft                    TPACK                         May 2026
    The coefficient is encoded in the data block as SVarInt.  The scale
    is not repeated in the data block.
 
-6.4.2.  String(N)
+7.4.2.  String(N)
 
    String(N) is encoded as:
 
@@ -774,14 +886,14 @@ Internet-Draft                    TPACK                         May 2026
    MaxLength MAY be zero.  The name String(N) denotes a bounded string,
    not a string that is always exactly N octets long.
 
-6.4.3.  Bytes(N)
+7.4.3.  Bytes(N)
 
    Bytes(N) is encoded as:
 
 
 
 
-Zhang                   Expires 17 November 2026               [Page 14]
+Zhang                   Expires 17 November 2026               [Page 16]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -793,7 +905,7 @@ Internet-Draft                    TPACK                         May 2026
    MaxLength MAY be zero.  The name Bytes(N) denotes a bounded byte
    string, not a byte string that is always exactly N octets long.
 
-6.4.4.  Timestamp(P)
+7.4.4.  Timestamp(P)
 
    Timestamp(P) is encoded as:
 
@@ -812,9 +924,9 @@ Internet-Draft                    TPACK                         May 2026
    represented by Timestamp(P).  Applications that require civil-time
    representation with a timezone name SHOULD use DateTimeTZ.
 
-6.5.  Structural Type Descriptors
+7.5.  Structural Type Descriptors
 
-6.5.1.  Struct
+7.5.1.  Struct
 
    Struct is encoded as:
 
@@ -837,7 +949,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 15]
+Zhang                   Expires 17 November 2026               [Page 17]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -866,7 +978,7 @@ Internet-Draft                    TPACK                         May 2026
    Optionality is represented by wrapping a field type in Optional, not
    by omitting the field descriptor.
 
-6.5.2.  List
+7.5.2.  List
 
    List is encoded as:
 
@@ -878,7 +990,7 @@ Internet-Draft                    TPACK                         May 2026
    than zero means that list values MUST contain no more than MaxCount
    elements.
 
-6.5.3.  Map
+7.5.3.  Map
 
    Map is encoded as:
 
@@ -893,7 +1005,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 16]
+Zhang                   Expires 17 November 2026               [Page 18]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -908,7 +1020,7 @@ Internet-Draft                    TPACK                         May 2026
    duplicates immediately, but such an API MUST NOT expose the result as
    a validated Map until uniqueness has been verified.
 
-6.5.4.  Union
+7.5.4.  Union
 
    Union is encoded as:
 
@@ -924,7 +1036,7 @@ Internet-Draft                    TPACK                         May 2026
    Variant names MUST be valid UTF-8, MUST be non-empty, and MUST be
    unique within the enclosing Union.
 
-6.5.5.  Enum
+7.5.5.  Enum
 
    Enum is encoded as:
 
@@ -935,7 +1047,7 @@ Internet-Draft                    TPACK                         May 2026
    Symbol names MUST be valid UTF-8, MUST be non-empty, and MUST be
    unique within the enclosing Enum.
 
-6.5.6.  Optional
+7.5.6.  Optional
 
    Optional is encoded as:
 
@@ -949,12 +1061,12 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 17]
+Zhang                   Expires 17 November 2026               [Page 19]
 
 Internet-Draft                    TPACK                         May 2026
 
 
-6.6.  Extension Type Descriptor
+7.6.  Extension Type Descriptor
 
    Extension is encoded as:
 
@@ -980,9 +1092,9 @@ Internet-Draft                    TPACK                         May 2026
    describing to generic decoders and are therefore unsuitable for open
    interchange.
 
-7.  Data Block
+8.  Data Block
 
-7.1.  General Rule
+8.1.  General Rule
 
    The data block contains exactly one Value encoded according to the
    active TypeDescriptor.  In FullSchema and FullSchemaWithId, the
@@ -995,7 +1107,7 @@ Internet-Draft                    TPACK                         May 2026
    for the described value.  A decoder MUST also reject a data block
    that contains trailing bytes after the described value.
 
-7.2.  Primitive Values
+8.2.  Primitive Values
 
    Null: Encoded as zero octets.
 
@@ -1005,7 +1117,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 18]
+Zhang                   Expires 17 November 2026               [Page 20]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1032,7 +1144,7 @@ Internet-Draft                    TPACK                         May 2026
    F64: Encoded as eight octets containing an IEEE 754 binary64 value in
    big-endian order.
 
-7.3.  Decimal Values
+8.3.  Decimal Values
 
    Decimal is the unconstrained arbitrary-precision decimal type.
    Decimal values are encoded as:
@@ -1061,7 +1173,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 19]
+Zhang                   Expires 17 November 2026               [Page 21]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1070,7 +1182,7 @@ Internet-Draft                    TPACK                         May 2026
    preserves the schema-defined scale.  Encoders MUST NOT encode decimal
    values as IEEE binary floating-point values.
 
-7.4.  Text and Byte Values
+8.4.  Text and Byte Values
 
    String values are encoded as a text component.  String(N) values are
    encoded identically, then validated to ensure that the byte length is
@@ -1080,7 +1192,7 @@ Internet-Draft                    TPACK                         May 2026
    are encoded identically, then validated to ensure that the byte
    length is less than or equal to N.
 
-7.5.  Temporal Values
+8.5.  Temporal Values
 
    TPACK uses the proleptic Gregorian calendar for Date and DateTime
    values.  Year zero is permitted and follows astronomical year
@@ -1113,11 +1225,11 @@ Internet-Draft                    TPACK                         May 2026
      required.
 
    Timestamp(P): Encoded as SVarInt units since 1970-01-01T00:00:00Z.
-   The unit is determined by the Precision parameter in Section 6.4.4.
+   The unit is determined by the Precision parameter in Section 7.4.4.
 
 
 
-Zhang                   Expires 17 November 2026               [Page 20]
+Zhang                   Expires 17 November 2026               [Page 22]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1146,7 +1258,7 @@ Internet-Draft                    TPACK                         May 2026
      apply a CalendarInterval to a Timestamp without explicit calendar
      and timezone context.
 
-7.6.  Big Integer Values
+8.6.  Big Integer Values
 
    BigInt is encoded as SVarInt.
 
@@ -1156,9 +1268,9 @@ Internet-Draft                    TPACK                         May 2026
    MAY impose implementation-specific limits and reject values that
    exceed those limits.
 
-7.7.  Structural Values
+8.7.  Structural Values
 
-7.7.1.  Struct Values
+8.7.1.  Struct Values
 
    A Struct value is encoded as the concatenation of its field values in
    schema order.  Field names are not repeated in the data block.
@@ -1173,12 +1285,12 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 21]
+Zhang                   Expires 17 November 2026               [Page 23]
 
 Internet-Draft                    TPACK                         May 2026
 
 
-7.7.2.  List Values
+8.7.2.  List Values
 
    A List value is encoded as:
 
@@ -1189,7 +1301,7 @@ Internet-Draft                    TPACK                         May 2026
    to the ElementType in the List type descriptor.  If MaxCount is non-
    zero, Count MUST be less than or equal to MaxCount.
 
-7.7.3.  Map Values
+8.7.3.  Map Values
 
    A Map value is encoded as:
 
@@ -1215,7 +1327,7 @@ Internet-Draft                    TPACK                         May 2026
    needed, applications SHOULD use List<Struct { key, value }> rather
    than Map.
 
-7.7.4.  Union Values
+8.7.4.  Union Values
 
    A Union value is encoded as:
 
@@ -1229,12 +1341,12 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 22]
+Zhang                   Expires 17 November 2026               [Page 24]
 
 Internet-Draft                    TPACK                         May 2026
 
 
-7.7.5.  Enum Values
+8.7.5.  Enum Values
 
    An Enum value is encoded as:
 
@@ -1242,7 +1354,7 @@ Internet-Draft                    TPACK                         May 2026
 
    SymbolIndex is zero-based and MUST be less than SymbolCount.
 
-7.7.6.  Optional Values
+8.7.6.  Optional Values
 
    An Optional value is encoded as:
 
@@ -1252,7 +1364,7 @@ Internet-Draft                    TPACK                         May 2026
    Presence 0x00 means absent.  Presence 0x01 means present.  All other
    Presence values MUST be rejected.
 
-8.  Validation Rules
+9.  Validation Rules
 
    A conforming decoder MUST validate the following while parsing:
 
@@ -1285,7 +1397,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 23]
+Zhang                   Expires 17 November 2026               [Page 25]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1325,7 +1437,7 @@ Internet-Draft                    TPACK                         May 2026
    the schema, for example "/price" or "/items/3/amount".  Error path
    reporting is not part of the wire format.
 
-9.  Canonical Encoding
+10.  Canonical Encoding
 
    Canonical TPACK is the unique shortest valid byte representation of a
    value and schema.  Canonical encoding is REQUIRED when TPACK is used
@@ -1341,7 +1453,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 24]
+Zhang                   Expires 17 November 2026               [Page 26]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1387,7 +1499,7 @@ Internet-Draft                    TPACK                         May 2026
    TPACK does not define a canonical SchemaId generation method and does
    not require SchemaId to equal any hash of the schema.
 
-10.  Schema Evolution and Unknown Data
+11.  Schema Evolution and Unknown Data
 
    TPACK wire encoding for Struct values is schema-order positional.  A
    generic decoder decodes fields in schema order.  Application model
@@ -1397,7 +1509,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 25]
+Zhang                   Expires 17 November 2026               [Page 27]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1430,7 +1542,7 @@ Internet-Draft                    TPACK                         May 2026
    data as ignored fields, Optional fields, Union variants, or Extension
    values rather than by changing primitive meanings.
 
-11.  Cached Schema Profile and Framing
+12.  Cached Schema Profile and Framing
 
    TPACK defines the encoding of one message.  It does not define how
    multiple messages are framed on a byte stream.
@@ -1453,7 +1565,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 26]
+Zhang                   Expires 17 November 2026               [Page 28]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1483,9 +1595,111 @@ Internet-Draft                    TPACK                         May 2026
    This document defines the envelope format and generic semantics.  It
    does not define a cache management protocol.
 
-12.  Examples
+13.  Implementation Status and Conformance Boundary
 
-12.1.  Flat Record with Decimal Values
+   This section is informative.  It records the implementation state of
+   the repository that accompanies this draft and is intended to help
+   reviewers separate the wire specification from the current execution
+   boundary of the reference code.
+
+   The repository contains a Rust reference implementation centered on
+   tpack-core, plus integration crates and command-line tooling.  At the
+   time of writing, the Rust implementation covers:
+
+   *  The three envelope modes FullSchema, FullSchemaWithId, and
+      SchemaRef.
+
+   *  Schema validation for duplicate field identifiers and names,
+      duplicate enum symbols, duplicate union variant names, reserved
+      field flags, type-parameter checks, and configured resource
+      limits.
+
+   *  Canonical-mode checks for shortest varints, canonical NaN
+      encodings, canonical Map key ordering, and duplicate Map keys
+      using canonical encoded key bytes.
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 29]
+
+Internet-Draft                    TPACK                         May 2026
+
+
+   *  Validation of the hexadecimal examples in this document through
+      executable tests in crates/tpack/tests/reference.rs.
+
+   The current Rust implementation also performs an implementation-
+   specific safety check for FullSchemaWithId cache hits by default: if
+   a SchemaId already exists in the local registry, the decoder reparses
+   the embedded schema block and rejects the message if the embedded
+   schema does not equal the cached schema.  Callers can disable that
+   comparison by local policy, but the stricter behavior is the default
+   in the reference code.
+
+   The specification data model defines Decimal, BigInt, and BigUInt as
+   arbitrary-precision types.  The current Rust implementation does not
+   yet expose arbitrary-precision semantics at that boundary.  Its
+   public value model currently uses signed or unsigned 64-bit host
+   integers for:
+
+   *  Decimal scale and coefficient.
+
+   *  Decimal(P,S) coefficient.
+
+   *  BigInt values.
+
+   *  BigUInt values.
+
+   Consequently, the present Rust implementation is a conforming
+   reference for TPACK version 1 only for the subset of messages whose
+   values fit within those 64-bit ranges.  Inputs that require larger
+   magnitudes are outside the current reference boundary and are
+   rejected during varint decoding or cannot be represented by the
+   implementation's exposed value API.  This limitation does not imply
+   any wire-format change; a future implementation can support larger
+   magnitudes while remaining wire compatible.
+
+   Reviewers should therefore treat the Rust codebase as strong evidence
+   for the envelope layout, schema encoding, validation rules,
+   canonicalization behavior, and cached-schema semantics, but not yet
+   as a complete executable oracle for every arbitrary-precision case
+   allowed by the abstract data model.
+
+14.  Test Vectors
+
+   The hexadecimal examples in this document are intended to be
+   executable test vectors, not merely illustrative prose.
+
+   The accompanying Rust test suite verifies at least the following:
+
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 30]
+
+Internet-Draft                    TPACK                         May 2026
+
+
+   *  The FullSchema, FullSchemaWithId, and SchemaRef encodings in the
+      Examples section.
+
+   *  Canonical Map ordering and duplicate-key rejection.
+
+   *  Rejection of non-zero reserved field flags, trailing bytes,
+      overlong varints, and non-canonical NaN encodings.
+
+   *  Round-trip coverage for temporal values, extension values,
+      Optional values, and representative nested structures.
+
+   Future implementations SHOULD use these examples as an initial
+   interoperability corpus and SHOULD add additional vectors for large
+   arbitrary-precision numbers once such implementations are available.
+
+15.  Examples
+
+15.1.  Flat Record with Decimal Values
 
    This example encodes the following typed record:
 
@@ -1507,18 +1721,22 @@ Internet-Draft                    TPACK                         May 2026
        ts:    1715000000
      }
 
-
-
-Zhang                   Expires 17 November 2026               [Page 27]
-
-Internet-Draft                    TPACK                         May 2026
-
-
    In this example, Decimal(18,4) fixes the scale at 4.  Therefore the
    price coefficient is 2999900.  The unconstrained Decimal tax value
    carries its own scale 3 and coefficient 13725.
 
    Hexadecimal encoding:
+
+
+
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 31]
+
+Internet-Draft                    TPACK                         May 2026
+
 
      54 50 41 4B 01
 
@@ -1542,7 +1760,7 @@ Internet-Draft                    TPACK                         May 2026
    name, flags, and type.  The data block then stores only the five
    field values in schema order.
 
-12.2.  Nested Structure
+15.2.  Nested Structure
 
    The following schema contains a nested address object:
 
@@ -1557,19 +1775,6 @@ Internet-Draft                    TPACK                         May 2026
 
    Its schema descriptor is:
 
-
-
-
-
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 28]
-
-Internet-Draft                    TPACK                         May 2026
-
-
      20 02
         01 02 69 64 00 0E 20
         02 07 61 64 64 72 65 73 73 00
@@ -1582,7 +1787,14 @@ Internet-Draft                    TPACK                         May 2026
    data block, the nested Struct value is encoded as the concatenation
    of city, street, and zip values.  It does not repeat field names.
 
-12.3.  Union Value
+
+
+Zhang                   Expires 17 November 2026               [Page 32]
+
+Internet-Draft                    TPACK                         May 2026
+
+
+15.3.  Union Value
 
    The following schema models a payment amount that can be one of three
    representations:
@@ -1612,16 +1824,28 @@ Internet-Draft                    TPACK                         May 2026
    The first octet is VariantIndex 0.  The remaining bytes are the
    SVarInt coefficient 1285000 for Decimal(18,4).
 
-12.4.  FullSchemaWithId Envelope
+15.4.  FullSchemaWithId Envelope
 
-   The flat record from Section 12.1 can also be sent as
+   The flat record from Section 15.1 can also be sent as
    FullSchemaWithId with SchemaId "example.record.v1":
 
 
 
 
 
-Zhang                   Expires 17 November 2026               [Page 29]
+
+
+
+
+
+
+
+
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 33]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1650,7 +1874,7 @@ Internet-Draft                    TPACK                         May 2026
    cached binding for that SchemaId, it can skip the 0x28 schema bytes
    and parse the data with the cached schema.
 
-12.5.  SchemaRef Envelope
+15.5.  SchemaRef Envelope
 
    After a cached schema profile has established the same
    "example.record.v1" binding, the same data block can be sent without
@@ -1670,14 +1894,14 @@ Internet-Draft                    TPACK                         May 2026
    EnvelopeMode is 0x02.  A decoder that does not already have a trusted
    binding for the SchemaId MUST reject this message.
 
-13.  IANA Considerations
+16.  IANA Considerations
 
    This document has no IANA actions.
 
 
 
 
-Zhang                   Expires 17 November 2026               [Page 30]
+Zhang                   Expires 17 November 2026               [Page 34]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1687,7 +1911,7 @@ Internet-Draft                    TPACK                         May 2026
    A provisional media type such as application/tpack may be used only
    where permitted by local policy; this document does not register it.
 
-14.  Security Considerations
+17.  Security Considerations
 
    TPACK is a binary format and must be parsed defensively.
 
@@ -1733,7 +1957,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 31]
+Zhang                   Expires 17 November 2026               [Page 35]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1746,6 +1970,13 @@ Internet-Draft                    TPACK                         May 2026
    protect them with authenticated transport, signatures, registry
    authorization, or equivalent controls.
 
+   If a deployment uses hash-derived SchemaId values, the safety of that
+   convention depends on the collision resistance of the chosen hash and
+   on clear documentation of the hash input.  Deployments SHOULD use a
+   collision-resistant hash such as SHA-256 and SHOULD scope any local
+   cache or registry to the correct tenant, authority, stream, or trust
+   domain.
+
    A malicious sender can use a known SchemaId with data encoded for a
    different schema if the application accepts unauthenticated bindings
    or confuses cache namespaces.  Cached schema profiles SHOULD scope
@@ -1757,7 +1988,9 @@ Internet-Draft                    TPACK                         May 2026
    external mechanisms such as TLS, object signatures, MACs, or an
    authenticated container format.
 
-15.  Normative References
+18.  References
+
+18.1.  Normative References
 
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119,
@@ -1772,6 +2005,38 @@ Internet-Draft                    TPACK                         May 2026
               2119 Key Words", BCP 14, RFC 8174, DOI 10.17487/RFC8174,
               May 2017, <https://www.rfc-editor.org/info/rfc8174>.
 
+18.2.  Informative References
+
+
+
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 36]
+
+Internet-Draft                    TPACK                         May 2026
+
+
+   [RFC8610]  Bormann, C. and P. Hoffman, "Concise Data Definition
+              Language (CDDL): A Notational Convention to Express
+              Concise Binary Object Representation (CBOR) and JSON Data
+              Structures", RFC 8610, DOI 10.17487/RFC8610, June 2019,
+              <https://www.rfc-editor.org/info/rfc8610>.
+
+   [RFC8949]  Bormann, C. and P. Hoffman, "Concise Binary Object
+              Representation (CBOR)", STD 94, RFC 8949,
+              DOI 10.17487/RFC8949, December 2020,
+              <https://www.rfc-editor.org/info/rfc8949>.
+
+   [AvroSpec] Project, A. A., "Apache Avro Specification", n.d.,
+              <https://avro.apache.org/docs/1.12.0/specification/>.
+
+   [ArrowFormat]
+              Project, A. A., "Apache Arrow Columnar Format and IPC
+              Specification", n.d.,
+              <https://arrow.apache.org/docs/format/Columnar.html>.
+
 Appendix A.  Rationale
 
    TPACK separates schema from data inside the envelope.  In the core
@@ -1781,18 +2046,6 @@ Appendix A.  Rationale
    external schema reduces payload size but makes the receiver stateful.
    TPACK therefore keeps self-contained messages as the default and adds
    SchemaRef only as an explicit cached schema profile.
-
-
-
-
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 32]
-
-Internet-Draft                    TPACK                         May 2026
-
 
    SchemaId is opaque because different deployments need different
    identity, discovery, and trust models.  Some applications may use a
@@ -1813,6 +2066,14 @@ Internet-Draft                    TPACK                         May 2026
    Duration and CalendarInterval are separate because elapsed physical
    time and calendar arithmetic have different semantics.
 
+
+
+
+Zhang                   Expires 17 November 2026               [Page 37]
+
+Internet-Draft                    TPACK                         May 2026
+
+
    Struct FieldId preserves stable semantic binding while the data block
    remains compact and positional.  Field names remain useful for human
    understanding, diagnostics, and fallback binding, but renames should
@@ -1820,6 +2081,10 @@ Internet-Draft                    TPACK                         May 2026
    are reserved even though version 1 requires zero.  Reserving the slot
    makes later additions possible without changing the basic field
    descriptor shape.
+
+   The version 1 wire magic remains "TPAK" even though the format name
+   is TPACK.  This is a conscious compatibility choice for the current
+   revision line, not an accidental inconsistency left unexplained.
 
    TPACK intentionally omits namespace and table-name fields from the
    core format.  Those concepts belong to application protocols.  A
@@ -1837,18 +2102,6 @@ Appendix B.  Implementation Notes
    The specification does not define a JIT assembly format, internal
    intermediate representation, code generation ABI, cache-key
    algorithm, or CPU-architecture-specific behavior.
-
-
-
-
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 33]
-
-Internet-Draft                    TPACK                         May 2026
-
 
 Appendix C.  Acknowledgements
 
@@ -1872,33 +2125,4 @@ Author's Address
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 34]
+Zhang                   Expires 17 November 2026               [Page 38]

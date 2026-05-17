@@ -2,11 +2,19 @@ use std::borrow::Cow;
 
 use tpack::{
     CanonicalMode, DecodeOptions, Decoder, EncodeOptions, EnvelopeMode, ErrorKind, Field, Schema,
-    TpackValue, TypeDescriptor, ValueMapEntry, Variant, encode_message,
+    TpackValue, TypeDescriptor, ValueMapEntry, Variant, encode_message, encode_schema,
+    recommended_schema_id_xxh64_v1,
 };
 
 mod reference_cases {
     use super::*;
+
+    fn decode_hex_bytes(source: &str) -> Vec<u8> {
+        source
+            .split_whitespace()
+            .map(|octet| u8::from_str_radix(octet, 16).expect("vector must contain valid hex"))
+            .collect()
+    }
 
     #[cfg(feature = "std")]
     fn flat_schema() -> Schema {
@@ -44,38 +52,103 @@ mod reference_cases {
     }
 
     fn draft_flat_full_schema_hex() -> Vec<u8> {
-        vec![
-            0x54, 0x50, 0x41, 0x4B, 0x01, 0x00, 0x28, 0x20, 0x05, 0x01, 0x02, 0x69, 0x64, 0x00,
-            0x0E, 0x40, 0x02, 0x05, 0x70, 0x72, 0x69, 0x63, 0x65, 0x00, 0x0D, 0x12, 0x04, 0x03,
-            0x03, 0x74, 0x61, 0x78, 0x00, 0x0C, 0x04, 0x03, 0x71, 0x74, 0x79, 0x00, 0x04, 0x05,
-            0x02, 0x74, 0x73, 0x00, 0x05, 0x08, 0x70, 0x72, 0x6F, 0x64, 0x5F, 0x30, 0x30, 0x31,
-            0xB8, 0x99, 0xEE, 0x02, 0x06, 0xBA, 0xD6, 0x01, 0x00, 0x00, 0x00, 0x0A, 0x00, 0x00,
-            0x00, 0x00, 0x66, 0x38, 0xD2, 0xC0,
-        ]
+        decode_hex_bytes(include_str!(
+            "../../../test-vectors/v1/draft-00/flat-record/full-schema.hex"
+        ))
     }
 
     #[cfg(feature = "std")]
     fn draft_flat_with_id_hex() -> Vec<u8> {
-        let mut bytes = vec![
-            0x54, 0x50, 0x41, 0x4B, 0x01, 0x01, 0x11, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65,
-            0x2E, 0x72, 0x65, 0x63, 0x6F, 0x72, 0x64, 0x2E, 0x76, 0x31, 0x28,
-        ];
-        bytes.extend_from_slice(&draft_flat_full_schema_hex()[7..]);
-        bytes
+        decode_hex_bytes(include_str!(
+            "../../../test-vectors/v1/draft-00/flat-record/full-schema-with-id.hex"
+        ))
     }
 
     fn draft_flat_schema_ref_hex() -> Vec<u8> {
-        let mut bytes = vec![
-            0x54, 0x50, 0x41, 0x4B, 0x01, 0x02, 0x11, 0x65, 0x78, 0x61, 0x6D, 0x70, 0x6C, 0x65,
-            0x2E, 0x72, 0x65, 0x63, 0x6F, 0x72, 0x64, 0x2E, 0x76, 0x31,
-        ];
-        bytes.extend_from_slice(&draft_flat_full_schema_hex()[47..]);
-        bytes
+        decode_hex_bytes(include_str!(
+            "../../../test-vectors/v1/draft-00/flat-record/schema-ref.hex"
+        ))
+    }
+
+    fn noncanonical_map_order_hex() -> Vec<u8> {
+        decode_hex_bytes(include_str!(
+            "../../../test-vectors/v1/reference/noncanonical-map-order/full-schema.hex"
+        ))
     }
 
     #[cfg(feature = "std")]
     #[test]
-    fn draft_section_12_envelopes_decode_and_canonicalize() {
+    fn schema_id_helpers_match_documented_profiles() {
+        let schema = flat_schema();
+
+        assert_eq!(
+            recommended_schema_id_xxh64_v1(&schema).unwrap(),
+            [0x23, 0x73, 0x76, 0xF7, 0x21, 0xB6, 0x0A, 0x41]
+        );
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn schema_id_helpers_depend_on_canonical_descriptor_bytes_only() {
+        let schema = flat_schema();
+        let xxh64 = recommended_schema_id_xxh64_v1(&schema).unwrap();
+
+        let mut noncanonical_schema_bytes = encode_schema(&schema).unwrap();
+        assert_eq!(noncanonical_schema_bytes[0], 0x20);
+        assert_eq!(noncanonical_schema_bytes[1], 0x05);
+        noncanonical_schema_bytes[1] = 0x85;
+        noncanonical_schema_bytes.insert(2, 0x00);
+
+        let decoded_from_noncanonical = Decoder::new(&noncanonical_schema_bytes)
+            .decode_schema()
+            .expect("decode noncanonical schema bytes");
+        assert_eq!(decoded_from_noncanonical, schema);
+        assert_eq!(
+            recommended_schema_id_xxh64_v1(&decoded_from_noncanonical).unwrap(),
+            xxh64
+        );
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn schema_id_helper_is_schema_sensitive_and_rejects_invalid_schema_ast() {
+        let schema = flat_schema();
+        let digest_a = recommended_schema_id_xxh64_v1(&schema).unwrap();
+        let digest_b = recommended_schema_id_xxh64_v1(&schema).unwrap();
+        assert_eq!(digest_a, digest_b);
+
+        let modified_schema = Schema::new(TypeDescriptor::Struct(vec![
+            Field::new(1, "id", TypeDescriptor::String { max_len: Some(64) }),
+            Field::new(
+                2,
+                "price",
+                TypeDescriptor::DecimalFixed {
+                    precision: 18,
+                    scale: 4,
+                },
+            ),
+            Field::new(3, "tax", TypeDescriptor::Decimal),
+            Field::new(4, "qty", TypeDescriptor::I64),
+            Field::new(5, "ts", TypeDescriptor::I64),
+        ]));
+        let modified_digest = recommended_schema_id_xxh64_v1(&modified_schema).unwrap();
+        assert_ne!(digest_a, modified_digest);
+
+        let invalid_schema = Schema::new(TypeDescriptor::Struct(vec![
+            Field::new(1, "qty", TypeDescriptor::I32),
+            Field::new(1, "qty_alias", TypeDescriptor::I64),
+        ]));
+        let err = recommended_schema_id_xxh64_v1(&invalid_schema)
+            .expect_err("invalid schema must be rejected");
+        assert!(matches!(
+            err.kind(),
+            ErrorKind::Invalid(message) if message.contains("duplicate struct field")
+        ));
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn draft_examples_envelopes_decode_and_canonicalize() {
         let schema = flat_schema();
         let value = flat_value();
         assert_eq!(
@@ -104,9 +177,21 @@ mod reference_cases {
         );
 
         let registry = tpack::StdSchemaRegistry::new();
-        registry.insert(b"example.record.v1", schema.clone());
+        registry
+            .insert(b"example.record.v1", schema.clone())
+            .unwrap();
 
         let with_id_bytes = draft_flat_with_id_hex();
+        let mut decoder = Decoder::new(&with_id_bytes);
+        let with_id_without_cache = decoder.decode_message().unwrap();
+        assert_eq!(
+            with_id_without_cache.envelope.mode,
+            EnvelopeMode::FullSchemaWithId
+        );
+        assert!(!with_id_without_cache.envelope.used_cached_schema);
+        assert_eq!(with_id_without_cache.schema.as_ref(), &schema);
+        assert_eq!(with_id_without_cache.value, flat_value());
+
         let mut decoder = Decoder::new(&with_id_bytes);
         let with_id = decoder.decode_message_with_registry(&registry).unwrap();
         assert_eq!(with_id.envelope.mode, EnvelopeMode::FullSchemaWithId);
@@ -184,7 +269,11 @@ mod reference_cases {
                 value: TpackValue::I32(1),
             },
         ]);
-        let bytes = encode_message(&schema, &value, EnvelopeMode::FullSchema, None).unwrap();
+        let bytes = noncanonical_map_order_hex();
+        assert_eq!(
+            encode_message(&schema, &value, EnvelopeMode::FullSchema, None).unwrap(),
+            bytes
+        );
         let mut decoder = Decoder::with_options(
             &bytes,
             DecodeOptions {
@@ -754,7 +843,7 @@ mod reference_cases {
         .unwrap();
 
         let registry = tpack::StdSchemaRegistry::new();
-        registry.insert(b"example.payload.v1", schema);
+        registry.insert(b"example.payload.v1", schema).unwrap();
 
         let decoded: Payload = tpack::serde_support::Deserializer::new()
             .registry(&registry)

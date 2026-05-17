@@ -1,6 +1,5 @@
 use alloc::{borrow::Cow, boxed::Box, collections::BTreeSet, string::String, sync::Arc, vec::Vec};
 use core::cmp::Ordering;
-
 mod encode;
 mod validate;
 mod wire;
@@ -21,7 +20,6 @@ pub enum CanonicalMode {
     Off,
     Strict,
 }
-
 impl CanonicalMode {
     pub fn is_strict(self) -> bool {
         matches!(self, CanonicalMode::Strict)
@@ -72,8 +70,16 @@ pub struct DecodeOptions {
     ///
     /// When enabled, the decoder reparses the embedded schema block and
     /// requires it to match the cached schema before reusing the cached AST.
-    /// Disable this only when the registry entry is already trusted and the
-    /// embedded schema bytes do not need to be checked.
+    /// This makes `FullSchemaWithId` cache hits fail closed when a local
+    /// registry entry is stale, misbound, or collides with a different schema:
+    /// the decoder returns [`ErrorKind::EmbeddedSchemaMismatch`] instead of
+    /// silently trusting the cached AST.
+    ///
+    /// Disable this only when the schema-id namespace and registry binding are
+    /// already authenticated or otherwise trusted for the deployment.
+    /// Content-derived schema-id helpers standardize identifier derivation.
+    /// `SchemaRef` has no embedded schema bytes, so it always depends on the
+    /// caller's registry binding.
     pub validate_embedded_schema_on_cache_hit: bool,
     pub limits: Limits,
 }
@@ -883,6 +889,19 @@ pub fn encode_message(
     Ok(encoder.into_vec())
 }
 
+/// Encode only the schema descriptor bytes for a schema.
+///
+/// The returned bytes are the canonical `TypeDescriptor` bytes for a schema.
+/// Callers can also derive any other local `SchemaId` convention from these
+/// bytes, including precomputed or provisioned identifiers, and then pass the
+/// resulting opaque bytes to [`encode_message`] and their schema registry.
+///
+/// Collision detection and registry policy stay with the caller. If two
+/// distinct schemas are assigned the same local `SchemaId`, default
+/// `FullSchemaWithId` cache hits fail with
+/// [`ErrorKind::EmbeddedSchemaMismatch`] once the embedded descriptor differs
+/// from the cached schema, while `SchemaRef` depends entirely on the caller's
+/// registry binding.
 pub fn encode_schema(schema: &Schema) -> Result<Vec<u8>> {
     encode::schema(schema, EncodeOptions::default())
 }

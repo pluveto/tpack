@@ -55,6 +55,46 @@ normative:
       BCP: 14
       RFC: 8174
       DOI: 10.17487/RFC8174
+informative:
+  RFC8610:
+    title: "Concise Data Definition Language (CDDL): A Notational Convention to Express Concise Binary Object Representation (CBOR) and JSON Data Structures"
+    author:
+      -
+        ins: C. Bormann
+        name: Carsten Bormann
+      -
+        ins: P. Hoffman
+        name: Paul Hoffman
+    date: 2019-06
+    target: https://www.rfc-editor.org/info/rfc8610
+    seriesinfo:
+      RFC: 8610
+      DOI: 10.17487/RFC8610
+  RFC8949:
+    title: "Concise Binary Object Representation (CBOR)"
+    author:
+      -
+        ins: C. Bormann
+        name: Carsten Bormann
+      -
+        ins: P. Hoffman
+        name: Paul Hoffman
+    date: 2020-12
+    target: https://www.rfc-editor.org/info/rfc8949
+    seriesinfo:
+      STD: 94
+      RFC: 8949
+      DOI: 10.17487/RFC8949
+  AvroSpec:
+    title: Apache Avro Specification
+    author:
+      name: Apache Avro Project
+    target: https://avro.apache.org/docs/1.12.0/specification/
+  ArrowFormat:
+    title: Apache Arrow Columnar Format and IPC Specification
+    author:
+      name: Apache Arrow Project
+    target: https://arrow.apache.org/docs/format/Columnar.html
 
 --- abstract
 
@@ -126,6 +166,55 @@ normative:
    *  Nested structures, lists, maps, enums, unions, optional values,
       and binary data are first-class types.
 
+   This repository also contains a Rust reference implementation and an
+   executable test corpus that exercise the envelope modes, canonical
+   rules, and hexadecimal examples described by this document.
+
+# Positioning Relative to Existing Formats
+
+   TPACK is not the first typed binary format, nor does it try to
+   replace every existing one.  Its purpose is narrower: one typed
+   value per message, with schema-aware validation at parse time, while
+   keeping self-contained messages as the default.
+
+   Avro is the closest prior art {{AvroSpec}}.  Like TPACK, Avro avoids
+   repeating field names in every record and uses a schema to interpret
+   the data.  The main difference is where schema state lives.  Avro
+   object container files carry schema once per file, and Avro
+   single-object encoding carries a compact schema fingerprint rather
+   than the complete schema.  TPACK FullSchema instead carries the
+   complete binary type descriptor inside each self-contained message.
+   TPACK therefore pays more first-message overhead than Avro
+   single-object encoding, but it does not require a pre-shared
+   fingerprint table, JSON schema text, or an external registry in the
+   core format.  TPACK SchemaRef is intentionally only a profile for
+   deployments that already have such external schema state.
+
+   Apache Arrow IPC {{ArrowFormat}} solves a different problem.  Arrow
+   is optimized for columnar arrays, record batches, zero-copy
+   relocation, and analytical processing.  Its primitive unit is a
+   schema plus a batch-oriented body, not one nested typed value.
+   TPACK does not attempt Arrow's in-memory layout guarantees or
+   vectorized scan model.  Instead, TPACK targets compact transport of a
+   single typed value, recursive schema trees, and immediate validation
+   by a generic decoder.
+
+   CBOR {{RFC8949}} plus CDDL {{RFC8610}} provides compact value-level
+   self-description plus a separate schema language.  That combination
+   is appropriate when applications want a flexible tagged value model
+   and apply schema validation as an additional layer.  TPACK makes a
+   different tradeoff: the active schema is part of the message or
+   cached-schema profile itself, and the data block omits repeated type
+   tags and field names once the schema is known.  TPACK therefore
+   couples schema and value more tightly than CBOR plus CDDL, while
+   giving up some of CBOR's schema-agnostic flexibility.
+
+   Protocol Buffers, FlatBuffers, and similar IDL-driven formats remain
+   good choices when deployments already depend on generated code or
+   strongly controlled schemas.  TPACK version 1 deliberately avoids
+   requiring generated code, code generation toolchains, or a registry
+   protocol in the core wire format.
+
 # Conventions and Terminology
 
    The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
@@ -175,7 +264,7 @@ normative:
 
    Canonical Encoding:
       The unique shortest valid byte representation of a TPACK message,
-      as defined in Section 9.
+      as defined in Section 10.
 
 # Design Goals and Non-Goals
 
@@ -231,7 +320,7 @@ normative:
 
    *  TPACK version 1 does not define cyclic object graphs.  Directed
       graphs and cyclic references may be specified by future extensions
-      using the extension mechanism in Section 6.6.
+      using the extension mechanism in Section 7.6.
 
 # Data Model
 
@@ -277,6 +366,13 @@ normative:
    absent only when its type is Optional and the encoded presence marker
    indicates absence.  Null is an explicit value of the Null type.
 
+   Schema authors SHOULD use Optional(T) when a field may be omitted on
+   the wire.  They SHOULD use Null, or a Union that explicitly includes
+   Null, only when a present value may itself be null.  Optional(T) and
+   Union{Null, T} are therefore not interchangeable.  If an application
+   needs three states such as absent, explicit null, and concrete
+   value, one possible model is Optional(Union{Null, T}).
+
 # Wire Format
 
 ## Overall Message Structure
@@ -319,7 +415,7 @@ normative:
       SchemaId         = *OCTET
 
    The grammar above is descriptive.  The normative binary encodings of
-   TypeDescriptor and Value are defined in Sections 6 and 7.
+   TypeDescriptor and Value are defined in Sections 7 and 8.
    SchemaLen is the number of octets in the complete TypeDescriptor and
    does not include the SchemaLen field itself.  The Data Block length
    is driven by the schema unless an enclosing transport also provides a
@@ -337,6 +433,15 @@ normative:
    A decoder MUST reject a message whose first four octets are not
    "TPAK".  A decoder conforming only to this document MUST reject a
    message whose version octet is not 0x01.
+
+   The format name is TPACK, but the version 1 wire magic is the
+   four-octet marker "TPAK".  This document intentionally keeps that
+   marker.  Changing it would create a wire-incompatible revision
+   across the current draft text, examples, reference tests, and Rust
+   implementation, while providing little technical benefit beyond name
+   alignment.  In version 1, specifications and implementations SHOULD
+   therefore use "TPACK" as the format name and "TPAK" only for the
+   fixed header bytes.
 
 ## Envelope Modes
 
@@ -393,6 +498,64 @@ normative:
    deployment.  TPACK core does not verify that SchemaId and Schema
    bytes match.
 
+   Within one cache namespace, registry authority, or other
+   profile-defined binding context, a SchemaId MUST resolve to at most
+   one schema.  If an implementation learns, observes, or is configured
+   with multiple different schemas for the same SchemaId in that scope,
+   it MUST treat that condition as a collision or configuration error.
+   It MUST NOT silently overwrite one binding with another, choose a
+   binding nondeterministically, or continue decoding SchemaRef against
+   an ambiguous binding.
+
+### Recommended SchemaId Profile
+
+   TPACK core keeps SchemaId opaque.  However, independent
+   implementations often need a default convention when no registry or
+   bilateral naming scheme already exists.
+
+   In such deployments, a sender and receiver SHOULD derive SchemaId
+   from the canonical TypeDescriptor bytes alone, excluding Header,
+   EnvelopeMode, SchemaLen, and the Data Block.  The bytes used as hash
+   input SHOULD be exactly the validated on-wire TypeDescriptor encoded
+   with shortest UVarInt forms and zero field flags.
+
+   Hashing an entire FullSchema or FullSchemaWithId message does not
+   follow this convention.
+
+   This document defines one official recommended hash-derived profile
+   named `xxh64-v1`.  In that profile, the SchemaId is computed as
+   `xxHash64(seed=0)` over the canonical TypeDescriptor bytes and
+   serialized as a fixed 8-octet big-endian value.
+
+   `xxh64-v1` is the only official recommended SchemaId profile in this
+   document.  It is intended for bounded, registry-backed, or otherwise
+   profile-defined deployments that already constrain the binding scope.
+   The profile does not change the core rule that SchemaId is an opaque
+   byte string.
+
+   Because `xxh64-v1` is a compact 64-bit identifier, deployments that
+   use it MUST define the identifier scope, the assignment authority,
+   whether identifiers may be reused, and how bindings are reset after
+   reboot, reconnect, firmware change, cache eviction, or other context
+   loss.  Receivers MUST fail closed and reject SchemaRef when the
+   required binding context is absent, expired, reset, ambiguous,
+   conflicting, or established under a different scope.
+
+   If two different schemas are observed for the same `xxh64-v1`
+   SchemaId within one active binding context, receivers MUST treat that
+   condition as a collision or configuration error and MUST NOT
+   continue decoding against that binding.
+
+   Deployments MAY use another SchemaId profile by prior agreement.
+   Such alternatives are outside the official recommendation of this
+   document and do not change the core opaque-bytes semantics of
+   SchemaId.
+
+   This convention is informative only.  It does not change the core
+   wire format, does not make SchemaId a hash by definition, and does
+   not prohibit registry-issued identifiers, stream-local identifiers,
+   or application-defined names encoded as bytes.
+
 ## Schema Skipping
 
    For FullSchemaWithId, a decoder reads SchemaIdLen and SchemaId
@@ -404,10 +567,27 @@ normative:
    against the cached schema in the background, but this specification
    does not require it.
 
+   A cached-schema profile MAY impose a stronger rule and require a
+   decoder to compare the embedded schema bytes against the cached
+   schema before the message is accepted.  Such a policy is compatible
+   with this specification and can reduce cache-confusion risk.
+
+   If a decoder validates the embedded TypeDescriptor against an
+   existing binding and they differ, it MUST reject the message and
+   treat the condition as a collision or configuration error in the
+   active binding context.  A decoder MUST NOT silently replace the
+   existing binding with the schema carried by that message.
+
+   Even when SchemaId values follow `xxh64-v1`, that convention alone
+   does not authenticate a cache namespace or registry binding.
+
    If a FullSchemaWithId cache lookup misses, the decoder MUST read and
    validate the SchemaLen-delimited TypeDescriptor.  If validation
    succeeds, the implementation MAY add the SchemaId-to-schema binding
-   to a local cache according to application policy.
+   to a local cache according to application policy.  If the
+   implementation already knows that the same SchemaId is conflicting or
+   ambiguous in the active context, it MUST fail instead of creating or
+   replacing a binding implicitly.
 
    For FullSchema, a decoder can use SchemaLen to locate the Data Block
    after validating the TypeDescriptor.  Without a SchemaId, a decoder
@@ -415,13 +595,18 @@ normative:
    protocol defines equivalent binding semantics.
 
    For SchemaRef, a cache miss is fatal.  A decoder MUST NOT parse the
-   Data Block without an established schema binding.
+   Data Block without an established schema binding.  A decoder MUST
+   also reject SchemaRef if the active profile marks the binding
+   ambiguous, conflicting, expired, or out of scope for the current
+   context.
 
    Implementations SHOULD expose errors corresponding to the following
    conditions where applicable:
 
       UNKNOWN_SCHEMA_ID
       INVALID_SCHEMA_ID
+      SCHEMA_ID_CONFLICT
+      EMBEDDED_SCHEMA_MISMATCH
       SCHEMA_REF_NOT_ALLOWED
       SCHEMA_LENGTH_EXCEEDED
       SCHEMA_LENGTH_MISMATCH
@@ -902,7 +1087,7 @@ normative:
 
    Timestamp(P):
       Encoded as SVarInt units since 1970-01-01T00:00:00Z.  The unit is
-      determined by the Precision parameter in Section 6.4.4.
+      determined by the Precision parameter in Section 7.4.4.
 
    Duration:
       Encoded as two SVarInt values:
@@ -1204,15 +1389,109 @@ normative:
 
    *  Unknown SchemaId behavior.
 
+   *  SchemaId namespace scope and assignment authority.
+
+   *  Collision handling, including whether conflicting bindings are a
+      fatal configuration error.
+
    *  Whether schemas may be reused across connections.
 
    *  Whether authentication is required.
+
+   *  Whether locally assigned or profile-local identifiers may be
+      reused after reboot, reconnect, or firmware update.
 
    *  Whether SchemaRef is allowed before a schema has been established
       in the current context.
 
    This document defines the envelope format and generic semantics.  It
    does not define a cache management protocol.
+
+# Implementation Status and Conformance Boundary
+
+   This section is informative.  It records the implementation state of
+   the repository that accompanies this draft and is intended to help
+   reviewers separate the wire specification from the current execution
+   boundary of the reference code.
+
+   The repository contains a Rust reference implementation centered on
+   `tpack-core`, plus integration crates and command-line tooling.  At
+   the time of writing, the Rust implementation covers:
+
+   *  The three envelope modes FullSchema, FullSchemaWithId, and
+      SchemaRef.
+
+   *  Schema validation for duplicate field identifiers and names,
+      duplicate enum symbols, duplicate union variant names, reserved
+      field flags, type-parameter checks, and configured resource
+      limits.
+
+   *  Canonical-mode checks for shortest varints, canonical NaN
+      encodings, canonical Map key ordering, and duplicate Map keys
+      using canonical encoded key bytes.
+
+   *  Validation of the hexadecimal examples in this document through
+      executable tests in `crates/tpack/tests/reference.rs`.
+
+   The current Rust implementation also performs an implementation-
+   specific safety check for FullSchemaWithId cache hits by default: if
+   a SchemaId already exists in the local registry, the decoder reparses
+   the embedded schema block and rejects the message if the embedded
+   schema does not equal the cached schema.  Callers can disable that
+   comparison by local policy, but only when the SchemaId namespace and
+   binding source are already trusted out of band.  The stricter
+   behavior is the default in the reference code.
+
+   The specification data model defines Decimal, BigInt, and BigUInt as
+   arbitrary-precision types.  The current Rust implementation does not
+   yet expose arbitrary-precision semantics at that boundary.  Its
+   public value model currently uses signed or unsigned 64-bit host
+   integers for:
+
+   *  Decimal scale and coefficient.
+
+   *  Decimal(P,S) coefficient.
+
+   *  BigInt values.
+
+   *  BigUInt values.
+
+   Consequently, the present Rust implementation is a conforming
+   reference for TPACK version 1 only for the subset of messages whose
+   values fit within those 64-bit ranges.  Inputs that require larger
+   magnitudes are outside the current reference boundary and are
+   rejected during varint decoding or cannot be represented by the
+   implementation's exposed value API.  This limitation does not imply
+   any wire-format change; a future implementation can support larger
+   magnitudes while remaining wire compatible.
+
+   Reviewers should therefore treat the Rust codebase as strong evidence
+   for the envelope layout, schema encoding, validation rules,
+   canonicalization behavior, and cached-schema semantics, but not yet
+   as a complete executable oracle for every arbitrary-precision case
+   allowed by the abstract data model.
+
+# Test Vectors
+
+   The hexadecimal examples in this document are intended to be
+   executable test vectors, not merely illustrative prose.
+
+   The accompanying Rust test suite verifies at least the following:
+
+   *  The FullSchema, FullSchemaWithId, and SchemaRef encodings in the
+      Examples section.
+
+   *  Canonical Map ordering and duplicate-key rejection.
+
+   *  Rejection of non-zero reserved field flags, trailing bytes,
+      overlong varints, and non-canonical NaN encodings.
+
+   *  Round-trip coverage for temporal values, extension values,
+      Optional values, and representative nested structures.
+
+   Future implementations SHOULD use these examples as an initial
+   interoperability corpus and SHOULD add additional vectors for large
+   arbitrary-precision numbers once such implementations are available.
 
 # Examples
 
@@ -1325,7 +1604,7 @@ normative:
 
 ## FullSchemaWithId Envelope
 
-   The flat record from Section 12.1 can also be sent as
+   The flat record from Section 15.1 can also be sent as
    FullSchemaWithId with SchemaId "example.record.v1":
 
       54 50 41 4B 01
@@ -1431,6 +1710,25 @@ normative:
    applications MUST protect them with authenticated transport,
    signatures, registry authorization, or equivalent controls.
 
+   Deployments that use the official `xxh64-v1` profile MUST keep it
+   within a bounded, registry-backed, or otherwise profile-defined
+   binding scope such as a single authenticated connection, stream,
+   boot session, tenant, or authoritative registry.  Such identifiers
+   MUST NOT be treated as portable proof that two different
+   deployments, caches, or administrative domains mean the same
+   schema.
+
+   SchemaRef and cache reuse MUST fail closed once the relevant binding
+   scope is lost, reset, expired, ambiguous, or conflicting.  The same
+   fail-closed requirement applies if a receiver forgets prior bindings
+   after reboot, reconnect, cache eviction, or another loss of context.
+
+   If two different schemas are observed for the same SchemaId within
+   one binding context, the receiver MUST treat that as a collision or
+   configuration error.  SchemaRef cannot be decoded safely in that
+   state, and FullSchemaWithId MUST NOT silently overwrite the existing
+   binding.
+
    A malicious sender can use a known SchemaId with data encoded for a
    different schema if the application accepts unauthenticated bindings
    or confuses cache namespaces.  Cached schema profiles SHOULD scope
@@ -1480,6 +1778,10 @@ normative:
    are reserved even though version 1 requires zero.  Reserving the slot
    makes later additions possible without changing the basic field
    descriptor shape.
+
+   The version 1 wire magic remains "TPAK" even though the format name
+   is TPACK.  This is a conscious compatibility choice for the current
+   revision line, not an accidental inconsistency left unexplained.
 
    TPACK intentionally omits namespace and table-name fields from the
    core format.  Those concepts belong to application protocols.  A

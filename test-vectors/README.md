@@ -31,17 +31,16 @@ whitespace only. Blank lines are allowed.
 | Non-canonical map order | `v1/reference/noncanonical-map-order/full-schema.hex` | Repository regression vector | Strict canonical decode must fail with `NonCanonicalMapKeyOrder` |
 
 SchemaId-related vectors currently exercise the draft's string example
-and the default fail-closed cache behavior. The documentation now also
-defines two hash-based naming profiles for canonical schema descriptor
-bytes:
+and the default fail-closed cache behavior. The documentation now
+defines one official recommended naming profile for canonical schema
+descriptor bytes:
 
-- open interoperability default: SHA-256
-- official compact profile: `xxh64-v1` = `xxHash64(seed=0)`, fixed
-  8-byte big-endian output
+- `xxh64-v1` = `xxHash64(seed=0)`, fixed 8-byte big-endian output
 
-Neither profile authenticates a binding by itself. Compact-profile
-deployments still need an explicit scope and must reject `SchemaRef`
-when the binding context is missing, expired, ambiguous, or conflicting.
+`xxh64-v1` does not authenticate a binding by itself. Deployments that
+use it still need an explicit bounded or registry-backed scope and must
+reject `SchemaRef` when the binding context is missing, reset, expired,
+ambiguous, conflicting, or otherwise out of scope.
 
 ## Quick Checks
 

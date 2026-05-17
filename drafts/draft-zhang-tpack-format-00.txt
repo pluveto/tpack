@@ -70,15 +70,15 @@ Table of Contents
      6.2.  Header  . . . . . . . . . . . . . . . . . . . . . . . . .   9
      6.3.  Envelope Modes  . . . . . . . . . . . . . . . . . . . . .  10
      6.4.  Schema Identifiers  . . . . . . . . . . . . . . . . . . .  11
-       6.4.1.  Recommended SchemaId Profiles . . . . . . . . . . . .  11
-     6.5.  Schema Skipping . . . . . . . . . . . . . . . . . . . . .  13
-     6.6.  Unsigned Variable-Length Integer  . . . . . . . . . . . .  14
+       6.4.1.  Recommended SchemaId Profile  . . . . . . . . . . . .  11
+     6.5.  Schema Skipping . . . . . . . . . . . . . . . . . . . . .  12
+     6.6.  Unsigned Variable-Length Integer  . . . . . . . . . . . .  13
      6.7.  Signed Variable-Length Integer  . . . . . . . . . . . . .  14
-     6.8.  Text String Component . . . . . . . . . . . . . . . . . .  15
-     6.9.  Byte String Component . . . . . . . . . . . . . . . . . .  15
+     6.8.  Text String Component . . . . . . . . . . . . . . . . . .  14
+     6.9.  Byte String Component . . . . . . . . . . . . . . . . . .  14
    7.  Schema Block  . . . . . . . . . . . . . . . . . . . . . . . .  15
      7.1.  Type Descriptor Encoding  . . . . . . . . . . . . . . . .  15
-     7.2.  Type Tag Registry . . . . . . . . . . . . . . . . . . . .  16
+     7.2.  Type Tag Registry . . . . . . . . . . . . . . . . . . . .  15
      7.3.  Primitive Type Descriptors  . . . . . . . . . . . . . . .  17
      7.4.  Parameterized Type Descriptors  . . . . . . . . . . . . .  17
        7.4.1.  Decimal(P,S)  . . . . . . . . . . . . . . . . . . . .  17
@@ -134,7 +134,7 @@ Internet-Draft                    TPACK                         May 2026
      18.2.  Informative References . . . . . . . . . . . . . . . . .  38
    Appendix A.  Rationale  . . . . . . . . . . . . . . . . . . . . .  38
    Appendix B.  Implementation Notes . . . . . . . . . . . . . . . .  39
-   Appendix C.  Acknowledgements . . . . . . . . . . . . . . . . . .  40
+   Appendix C.  Acknowledgements . . . . . . . . . . . . . . . . . .  39
    Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  40
 
 1.  Introduction
@@ -597,7 +597,7 @@ Internet-Draft                    TPACK                         May 2026
    binding nondeterministically, or continue decoding SchemaRef against
    an ambiguous binding.
 
-6.4.1.  Recommended SchemaId Profiles
+6.4.1.  Recommended SchemaId Profile
 
    TPACK core keeps SchemaId opaque.  However, independent
    implementations often need a default convention when no registry or
@@ -621,58 +621,34 @@ Internet-Draft                    TPACK                         May 2026
    Hashing an entire FullSchema or FullSchemaWithId message does not
    follow this convention.
 
-   This document makes a two-layer recommendation for hash-derived
-   SchemaId profiles over those canonical TypeDescriptor bytes.
+   This document defines one official recommended hash-derived profile
+   named xxh64-v1.  In that profile, the SchemaId is computed as
+   xxHash64(seed=0) over the canonical TypeDescriptor bytes and
+   serialized as a fixed 8-octet big-endian value.
 
-   For open interoperability across independent implementations,
-   uncoordinated deployments, or long-lived shared registries, SHA-256
-   is RECOMMENDED as the primary default.  The resulting SchemaId is the
-   bare 32-octet digest.  SHA-256 remains the main default because its
-   collision resistance is appropriate for open deployments where the
-   binding context may span multiple authorities, implementations, or
-   long retention periods.
+   xxh64-v1 is the only official recommended SchemaId profile in this
+   document.  It is intended for bounded, registry-backed, or otherwise
+   profile-defined deployments that already constrain the binding scope.
+   The profile does not change the core rule that SchemaId is an opaque
+   byte string.
 
-   This document also defines an official compact 64-bit profile named
-   xxh64-v1.  In that profile, the SchemaId is computed as
-   xxHash64(seed=0) over the same canonical TypeDescriptor bytes and
-   serialized as a fixed 8-octet big-endian value.  The purpose of
-   xxh64-v1 is compactness and lower implementation cost in bounded
-   deployments; it is not the main default for open interoperability.
+   Because xxh64-v1 is a compact 64-bit identifier, deployments that use
+   it MUST define the identifier scope, the assignment authority,
+   whether identifiers may be reused, and how bindings are reset after
+   reboot, reconnect, firmware change, cache eviction, or other context
+   loss.  Receivers MUST fail closed and reject SchemaRef when the
+   required binding context is absent, expired, reset, ambiguous,
+   conflicting, or established under a different scope.
 
-   Deployments MAY use another collision-resistant hash by prior
-   agreement, and MAY prepend an application-specific prefix or
-   algorithm identifier if they need domain separation.
+   If two different schemas are observed for the same xxh64-v1 SchemaId
+   within one active binding context, receivers MUST treat that
+   condition as a collision or configuration error and MUST NOT continue
+   decoding against that binding.
 
-   Some deployments, including resource-constrained devices, may choose
-   not to compute SHA-256 on device or may want a smaller identifier on
-   the wire or in a cache key.  Such deployments MAY use xxh64-v1,
-   registry-issued identifiers, stream-local or connection-local
-   identifiers, locally assigned names, or another profile-specific
-   convention.  They MAY also use another simpler or faster hash by
-   prior agreement when the resulting SchemaId is only a local name.
-
-   A profile that uses local assignment, xxh64-v1, or another non-
-   collision-resistant or narrower-scope naming convention MUST define
-   the identifier scope, the assignment authority, whether identifiers
-   may be reused, and how bindings are reset after reboot, reconnect,
-   firmware change, or other context loss.  In these profiles, SchemaId
-   does not authenticate a schema, does not make collisions negligible
-   in the open Internet sense, and is not suitable as the sole basis for
-   sharing schema bindings across unrelated trust domains or long-lived
-   persistent caches.  Receivers MUST reject SchemaRef when the required
-   binding context is absent, expired, ambiguous, conflicting, or
-   established under a different scope.
-
-
-
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 12]
-
-Internet-Draft                    TPACK                         May 2026
-
+   Deployments MAY use another SchemaId profile by prior agreement.
+   Such alternatives are outside the official recommendation of this
+   document and do not change the core opaque-bytes semantics of
+   SchemaId.
 
    This convention is informative only.  It does not change the core
    wire format, does not make SchemaId a hash by definition, and does
@@ -690,6 +666,14 @@ Internet-Draft                    TPACK                         May 2026
    against the cached schema in the background, but this specification
    does not require it.
 
+
+
+
+Zhang                   Expires 17 November 2026               [Page 12]
+
+Internet-Draft                    TPACK                         May 2026
+
+
    A cached-schema profile MAY impose a stronger rule and require a
    decoder to compare the embedded schema bytes against the cached
    schema before the message is accepted.  Such a policy is compatible
@@ -701,9 +685,8 @@ Internet-Draft                    TPACK                         May 2026
    active binding context.  A decoder MUST NOT silently replace the
    existing binding with the schema carried by that message.
 
-   Even when SchemaId values follow the SHA-256 default or the xxh64-v1
-   compact profile, that convention alone does not authenticate a cache
-   namespace or registry binding.
+   Even when SchemaId values follow xxh64-v1, that convention alone does
+   not authenticate a cache namespace or registry binding.
 
    If a FullSchemaWithId cache lookup misses, the decoder MUST read and
    validate the SchemaLen-delimited TypeDescriptor.  If validation
@@ -717,18 +700,6 @@ Internet-Draft                    TPACK                         May 2026
    after validating the TypeDescriptor.  Without a SchemaId, a decoder
    cannot safely substitute an external schema unless an enclosing
    protocol defines equivalent binding semantics.
-
-
-
-
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 13]
-
-Internet-Draft                    TPACK                         May 2026
-
 
    For SchemaRef, a cache miss is fatal.  A decoder MUST NOT parse the
    Data Block without an established schema binding.  A decoder MUST
@@ -751,6 +722,13 @@ Internet-Draft                    TPACK                         May 2026
 
    UVarInt encodes a non-negative integer using base-128 little-endian
    continuation bytes.
+
+
+
+Zhang                   Expires 17 November 2026               [Page 13]
+
+Internet-Draft                    TPACK                         May 2026
+
 
    Each octet contributes seven payload bits.  The most significant bit
    is the continuation bit.  If the continuation bit is 1, another octet
@@ -777,15 +755,6 @@ Internet-Draft                    TPACK                         May 2026
      zigzag(n) = 2 * n,       if n >= 0
      zigzag(n) = -2 * n - 1,  if n < 0
 
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 14]
-
-Internet-Draft                    TPACK                         May 2026
-
-
    The transformed value is encoded as UVarInt.  The inverse operation
    reconstructs the signed integer.
 
@@ -807,6 +776,15 @@ Internet-Draft                    TPACK                         May 2026
 6.9.  Byte String Component
 
    A byte string component is encoded as:
+
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 14]
+
+Internet-Draft                    TPACK                         May 2026
+
 
      Length  : UVarInt
      Content : Length octets
@@ -834,6 +812,28 @@ Internet-Draft                    TPACK                         May 2026
    field names within a Struct, has duplicate symbols within an Enum, or
    contains invalid parameters.
 
+7.2.  Type Tag Registry
+
+   The following tags are defined by TPACK version 1:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -841,10 +841,6 @@ Zhang                   Expires 17 November 2026               [Page 15]
 
 Internet-Draft                    TPACK                         May 2026
 
-
-7.2.  Type Tag Registry
-
-   The following tags are defined by TPACK version 1:
 
      +--------+----------------+-----------------------------------+
      | Tag    | Name           | Meaning                           |
@@ -890,6 +886,10 @@ Internet-Draft                    TPACK                         May 2026
    future use.  Tags 0xF0 through 0xFE are private-use tags and MUST NOT
    appear in messages intended for open interchange.  Tag 0xFF is
    permanently reserved and MUST NOT be used.
+
+
+
+
 
 
 
@@ -2026,22 +2026,17 @@ Internet-Draft                    TPACK                         May 2026
    protect them with authenticated transport, signatures, registry
    authorization, or equivalent controls.
 
-   If a deployment uses hash-derived SchemaId values, the safety of that
-   convention depends on the collision resistance of the chosen hash and
-   on clear documentation of the hash input.  Deployments SHOULD use a
-   collision-resistant hash such as SHA-256 and SHOULD scope any local
-   cache or registry to the correct tenant, authority, stream, or trust
-   domain.
+   Deployments that use the official xxh64-v1 profile MUST keep it
+   within a bounded, registry-backed, or otherwise profile-defined
+   binding scope such as a single authenticated connection, stream, boot
+   session, tenant, or authoritative registry.  Such identifiers MUST
+   NOT be treated as portable proof that two different deployments,
+   caches, or administrative domains mean the same schema.
 
-   Deployments that intentionally use the compact xxh64-v1 profile, a
-   simpler or faster hash, or a locally assigned SchemaId, for
-   constrained devices MUST scope that convention to a closed profile
-   such as a single authenticated connection, stream, boot session, or
-   authoritative registry.  Such identifiers MUST NOT be treated as
-   portable proof that two different deployments, caches, or
-   administrative domains mean the same schema.  SchemaRef MUST be
-   rejected once that profile-specific binding context is lost, expired,
-   ambiguous, or conflicting.
+   SchemaRef and cache reuse MUST fail closed once the relevant binding
+   scope is lost, reset, expired, ambiguous, or conflicting.  The same
+   fail-closed requirement applies if a receiver forgets prior bindings
+   after reboot, reconnect, cache eviction, or another loss of context.
 
    If two different schemas are observed for the same SchemaId within
    one binding context, the receiver MUST treat that as a collision or
@@ -2064,6 +2059,11 @@ Internet-Draft                    TPACK                         May 2026
 
 18.1.  Normative References
 
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119,
+              DOI 10.17487/RFC2119, March 1997,
+              <https://www.rfc-editor.org/info/rfc2119>.
+
 
 
 
@@ -2073,11 +2073,6 @@ Zhang                   Expires 17 November 2026               [Page 37]
 
 Internet-Draft                    TPACK                         May 2026
 
-
-   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
-              Requirement Levels", BCP 14, RFC 2119,
-              DOI 10.17487/RFC2119, March 1997,
-              <https://www.rfc-editor.org/info/rfc2119>.
 
    [RFC3629]  Yergeau, F., "UTF-8, a transformation format of ISO
               10646", STD 63, RFC 3629, DOI 10.17487/RFC3629, November
@@ -2118,6 +2113,11 @@ Appendix A.  Rationale
    TPACK therefore keeps self-contained messages as the default and adds
    SchemaRef only as an explicit cached schema profile.
 
+   SchemaId is opaque because different deployments need different
+   identity, discovery, and trust models.  Some applications may use a
+   content hash, while others may use a registry key, stream-local
+   integer encoded as bytes, or a protocol-specific name.  Those choices
+   affect cache management and trust but not the TPACK wire format.
 
 
 
@@ -2129,12 +2129,6 @@ Zhang                   Expires 17 November 2026               [Page 38]
 
 Internet-Draft                    TPACK                         May 2026
 
-
-   SchemaId is opaque because different deployments need different
-   identity, discovery, and trust models.  Some applications may use a
-   content hash, while others may use a registry key, stream-local
-   integer encoded as bytes, or a protocol-specific name.  Those choices
-   affect cache management and trust but not the TPACK wire format.
 
    Decimal is encoded as a base-10 coefficient and scale rather than a
    binary floating-point value.  This preserves exact decimal values and
@@ -2178,6 +2172,12 @@ Appendix B.  Implementation Notes
    intermediate representation, code generation ABI, cache-key
    algorithm, or CPU-architecture-specific behavior.
 
+Appendix C.  Acknowledgements
+
+   This draft was derived from design discussions about self-contained
+   typed binary messages, parse-time validation, decimal representation,
+   temporal types, and schema-carrying payloads.
+
 
 
 
@@ -2186,17 +2186,17 @@ Zhang                   Expires 17 November 2026               [Page 39]
 Internet-Draft                    TPACK                         May 2026
 
 
-Appendix C.  Acknowledgements
-
-   This draft was derived from design discussions about self-contained
-   typed binary messages, parse-time validation, decimal representation,
-   temporal types, and schema-carrying payloads.
-
 Author's Address
 
    Zijing Zhang
    Independent
    Email: zijing.zhang@ry.rs
+
+
+
+
+
+
 
 
 

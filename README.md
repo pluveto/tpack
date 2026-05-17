@@ -35,6 +35,10 @@ Envelope modes:
 
 `SchemaId` remains opaque in the core format.
 
+The only official recommended `SchemaId` profile is `xxh64-v1`: `xxHash64(seed=0)` over the canonical schema descriptor bytes, serialized as a fixed 8-byte big-endian value. This recommendation is for bounded or registry-backed deployments and does not change the core opaque-bytes semantics.
+
+If a deployment uses `xxh64-v1`, it must keep the binding scope explicit and fail closed on ambiguity, collision, stale cache state, or loss of binding context after reset or reconnect. Deployments may use another profile by prior agreement, but that is outside the official recommendation.
+
 ## What The Core Guarantees
 
 - Single-pass parsing after the active schema is available

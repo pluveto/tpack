@@ -507,7 +507,7 @@ informative:
    binding nondeterministically, or continue decoding SchemaRef against
    an ambiguous binding.
 
-### Recommended SchemaId Profiles
+### Recommended SchemaId Profile
 
    TPACK core keeps SchemaId opaque.  However, independent
    implementations often need a default convention when no registry or
@@ -522,48 +522,34 @@ informative:
    Hashing an entire FullSchema or FullSchemaWithId message does not
    follow this convention.
 
-   This document makes a two-layer recommendation for hash-derived
-   SchemaId profiles over those canonical TypeDescriptor bytes.
+   This document defines one official recommended hash-derived profile
+   named `xxh64-v1`.  In that profile, the SchemaId is computed as
+   `xxHash64(seed=0)` over the canonical TypeDescriptor bytes and
+   serialized as a fixed 8-octet big-endian value.
 
-   For open interoperability across independent implementations,
-   uncoordinated deployments, or long-lived shared registries, SHA-256
-   is RECOMMENDED as the primary default.  The resulting SchemaId is the
-   bare 32-octet digest.  SHA-256 remains the main default because its
-   collision resistance is appropriate for open deployments where the
-   binding context may span multiple authorities, implementations, or
-   long retention periods.
+   `xxh64-v1` is the only official recommended SchemaId profile in this
+   document.  It is intended for bounded, registry-backed, or otherwise
+   profile-defined deployments that already constrain the binding scope.
+   The profile does not change the core rule that SchemaId is an opaque
+   byte string.
 
-   This document also defines an official compact 64-bit profile named
-   `xxh64-v1`.  In that profile, the SchemaId is computed as
-   `xxHash64(seed=0)` over the same canonical TypeDescriptor bytes and
-   serialized as a fixed 8-octet big-endian value.  The purpose of
-   `xxh64-v1` is compactness and lower implementation cost in bounded
-   deployments; it is not the main default for open interoperability.
+   Because `xxh64-v1` is a compact 64-bit identifier, deployments that
+   use it MUST define the identifier scope, the assignment authority,
+   whether identifiers may be reused, and how bindings are reset after
+   reboot, reconnect, firmware change, cache eviction, or other context
+   loss.  Receivers MUST fail closed and reject SchemaRef when the
+   required binding context is absent, expired, reset, ambiguous,
+   conflicting, or established under a different scope.
 
-   Deployments MAY use another collision-resistant hash by prior
-   agreement, and MAY prepend an application-specific prefix or
-   algorithm identifier if they need domain separation.
+   If two different schemas are observed for the same `xxh64-v1`
+   SchemaId within one active binding context, receivers MUST treat that
+   condition as a collision or configuration error and MUST NOT
+   continue decoding against that binding.
 
-   Some deployments, including resource-constrained devices, may choose
-   not to compute SHA-256 on device or may want a smaller identifier on
-   the wire or in a cache key.  Such deployments MAY use `xxh64-v1`,
-   registry-issued identifiers, stream-local or connection-local
-   identifiers, locally assigned names, or another profile-specific
-   convention.  They MAY also use another simpler or faster hash by
-   prior agreement when the resulting SchemaId is only a local name.
-
-   A profile that uses local assignment, `xxh64-v1`, or another
-   non-collision-resistant or narrower-scope naming convention MUST
-   define the identifier scope, the assignment authority, whether
-   identifiers may be reused, and how bindings are reset after reboot,
-   reconnect, firmware change, or other context loss.  In these
-   profiles, SchemaId does not authenticate a schema, does not make
-   collisions negligible in the open Internet sense, and is not
-   suitable as the sole basis for sharing schema bindings across
-   unrelated trust domains or long-lived persistent caches.  Receivers
-   MUST reject SchemaRef when the required binding context is absent,
-   expired, ambiguous, conflicting, or established under a different
-   scope.
+   Deployments MAY use another SchemaId profile by prior agreement.
+   Such alternatives are outside the official recommendation of this
+   document and do not change the core opaque-bytes semantics of
+   SchemaId.
 
    This convention is informative only.  It does not change the core
    wire format, does not make SchemaId a hash by definition, and does
@@ -592,9 +578,8 @@ informative:
    active binding context.  A decoder MUST NOT silently replace the
    existing binding with the schema carried by that message.
 
-   Even when SchemaId values follow the SHA-256 default or the
-   `xxh64-v1` compact profile, that convention alone does not
-   authenticate a cache namespace or registry binding.
+   Even when SchemaId values follow `xxh64-v1`, that convention alone
+   does not authenticate a cache namespace or registry binding.
 
    If a FullSchemaWithId cache lookup misses, the decoder MUST read and
    validate the SchemaLen-delimited TypeDescriptor.  If validation
@@ -1725,22 +1710,18 @@ informative:
    applications MUST protect them with authenticated transport,
    signatures, registry authorization, or equivalent controls.
 
-   If a deployment uses hash-derived SchemaId values, the safety of that
-   convention depends on the collision resistance of the chosen hash and
-   on clear documentation of the hash input.  Deployments SHOULD use a
-   collision-resistant hash such as SHA-256 and SHOULD scope any local
-   cache or registry to the correct tenant, authority, stream, or trust
-   domain.
+   Deployments that use the official `xxh64-v1` profile MUST keep it
+   within a bounded, registry-backed, or otherwise profile-defined
+   binding scope such as a single authenticated connection, stream,
+   boot session, tenant, or authoritative registry.  Such identifiers
+   MUST NOT be treated as portable proof that two different
+   deployments, caches, or administrative domains mean the same
+   schema.
 
-   Deployments that intentionally use the compact `xxh64-v1` profile, a
-   simpler or faster hash, or a locally assigned SchemaId, for
-   constrained devices MUST scope that convention to a closed profile
-   such as a single authenticated connection, stream, boot session, or
-   authoritative registry.  Such identifiers MUST NOT be treated as
-   portable proof that two different deployments, caches, or
-   administrative domains mean the same schema.  SchemaRef MUST be
-   rejected once that profile-specific binding context is lost,
-   expired, ambiguous, or conflicting.
+   SchemaRef and cache reuse MUST fail closed once the relevant binding
+   scope is lost, reset, expired, ambiguous, or conflicting.  The same
+   fail-closed requirement applies if a receiver forgets prior bindings
+   after reboot, reconnect, cache eviction, or another loss of context.
 
    If two different schemas are observed for the same SchemaId within
    one binding context, the receiver MUST treat that as a collision or

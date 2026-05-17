@@ -12,9 +12,14 @@ reference implementation relative to
   trailing bytes, and canonical NaN encodings
 - cached-schema decode paths, including embedded-schema validation on
   `FullSchemaWithId` registry hits by default
-- CLI inspection and canonicalization helpers
-- public byte-level vectors under `test-vectors/`, including the draft
-  flat-record examples from the Examples section
+- CLI inspection and canonicalization helpers for self-contained
+  messages; the standalone CLI does not expose registry configuration
+  for `SchemaRef`
+- public byte-level vectors under `test-vectors/`, consumed by
+  `crates/tpack/tests/reference.rs`, including the draft flat-record
+  examples from the Examples section
+- dedicated cache-hit regression tests in
+  `crates/tpack/tests/cache_validation.rs`
 
 ## Known Boundary: Arbitrary Precision Is Not Fully Landed
 
@@ -31,6 +36,11 @@ This means the reference implementation is useful for validating
 envelope layout, schema descriptors, data ordering, and canonical byte
 rules, but it does not yet provide the full unbounded numeric semantics
 described by the draft.
+
+The SHA-256 `recommended_schema_id_sha256` helper in the Rust API is
+only a naming convention for uncoordinated deployments. It hashes the
+canonical schema descriptor bytes, but it does not authenticate a cache
+namespace or registry binding by itself.
 
 ## Deliberately Not Changed In This Sync
 

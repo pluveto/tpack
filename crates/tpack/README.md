@@ -14,12 +14,16 @@ This crate re-exports the core API and derive macros, and it hosts convenience f
 
 For low-latency use cases, prefer the native traits and a schema registry that can resolve `SchemaRef` payloads without extra work.
 
-When decoding `FullSchemaWithId` with a registry hit, the default path now reparses the embedded schema bytes and requires them to match the cached schema before reusing the cached AST. If a deployment intentionally trusts the registry entry and wants the older skip-only behavior, set `DecodeOptions::validate_embedded_schema_on_cache_hit` to `false`.
+When decoding `FullSchemaWithId` with a registry hit, the default path reparses the embedded schema bytes and requires them to match the cached schema before reusing the cached AST. Set `DecodeOptions::validate_embedded_schema_on_cache_hit` to `false` only when the schema-id namespace and registry binding are already authenticated or otherwise trusted for the deployment. The recommended SHA-256 helper below is only an identifier convention; it does not authenticate a cache entry by itself.
 
 For deployments that want the draft's recommended default `SchemaId`
 convention, use `recommended_schema_id_sha256(&schema)` and pass the
-resulting 32-byte digest as opaque `SchemaId` bytes. This helper is only
-for convenience; the wire format still treats `SchemaId` as opaque.
+resulting bare 32-byte digest as opaque `SchemaId` bytes. The hash input
+is the exact descriptor bytes returned by `encode_schema(&schema)`, not
+the message header, envelope, `SchemaLen`, or data block. This helper is
+only for convenience; the wire format still treats `SchemaId` as opaque,
+using the helper is only a local convention, and the digest does not
+authenticate a cache entry by itself.
 
 Current conformance boundary:
 
@@ -38,5 +42,7 @@ The serde bridge is available when the `serde_support` feature is enabled. It is
 
 - root `test-vectors/` contains the public example vectors
 - `crates/tpack/tests/reference.rs` validates the draft example bytes
+- `crates/tpack/tests/cache_validation.rs` covers default cache-hit
+  validation and the explicit opt-out path
 - root `docs/implementation-status.md` tracks the current executable
   reference boundary

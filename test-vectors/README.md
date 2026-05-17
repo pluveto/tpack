@@ -3,6 +3,10 @@
 This directory contains the public byte-level vectors used as interop
 anchors by the Rust reference implementation.
 
+The example vectors are consumed directly by
+`crates/tpack/tests/reference.rs`. Cached-schema validation behavior is
+covered separately by `crates/tpack/tests/cache_validation.rs`.
+
 The initial scope is intentionally small:
 
 - draft Examples-section flat-record examples in all three envelope modes
@@ -22,7 +26,7 @@ whitespace only. Blank lines are allowed.
 | Vector | Path | Source | Expected result |
 | --- | --- | --- | --- |
 | Flat record, FullSchema | `v1/draft-00/flat-record/full-schema.hex` | `draft-zhang-tpack-format-00` Section 15.1 | Decodes successfully as a self-contained message |
-| Flat record, FullSchemaWithId | `v1/draft-00/flat-record/full-schema-with-id.hex` | `draft-zhang-tpack-format-00` Section 15.4 | Decodes successfully; can reuse a cached schema if `example.record.v1` is trusted |
+| Flat record, FullSchemaWithId | `v1/draft-00/flat-record/full-schema-with-id.hex` | `draft-zhang-tpack-format-00` Section 15.4 | Decodes successfully without a registry; on a registry hit the reference implementation only reuses the cached schema after the embedded descriptor matches |
 | Flat record, SchemaRef | `v1/draft-00/flat-record/schema-ref.hex` | `draft-zhang-tpack-format-00` Section 15.5 | Requires an external binding for `example.record.v1`; otherwise decode must fail |
 | Non-canonical map order | `v1/reference/noncanonical-map-order/full-schema.hex` | Repository regression vector | Strict canonical decode must fail with `NonCanonicalMapKeyOrder` |
 
@@ -31,4 +35,5 @@ whitespace only. Blank lines are allowed.
 ```bash
 cargo test -p tpack --test reference draft_examples_envelopes_decode_and_canonicalize
 cargo test -p tpack --test reference canonical_map_ordering_and_nan_are_enforced
+cargo test -p tpack --test cache_validation
 ```

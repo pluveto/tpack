@@ -510,6 +510,9 @@ informative:
    input SHOULD be exactly the validated on-wire TypeDescriptor encoded
    with shortest UVarInt forms and zero field flags.
 
+   Hashing an entire FullSchema or FullSchemaWithId message does not
+   follow this convention.
+
    SHA-256 is RECOMMENDED for this convention because it is widely
    deployed and well understood.  Deployments MAY use another
    collision-resistant hash by prior agreement, and MAY prepend an
@@ -536,6 +539,10 @@ informative:
    decoder to compare the embedded schema bytes against the cached
    schema before the message is accepted.  Such a policy is compatible
    with this specification and can reduce cache-confusion risk.
+
+   Even when SchemaId values follow the recommended hash convention,
+   that convention alone does not authenticate a cache namespace or
+   registry binding.
 
    If a FullSchemaWithId cache lookup misses, the decoder MUST read and
    validate the SchemaLen-delimited TypeDescriptor.  If validation
@@ -1378,8 +1385,9 @@ informative:
    a SchemaId already exists in the local registry, the decoder reparses
    the embedded schema block and rejects the message if the embedded
    schema does not equal the cached schema.  Callers can disable that
-   comparison by local policy, but the stricter behavior is the default
-   in the reference code.
+   comparison by local policy, but only when the SchemaId namespace and
+   binding source are already trusted out of band.  The stricter
+   behavior is the default in the reference code.
 
    The specification data model defines Decimal, BigInt, and BigUInt as
    arbitrary-precision types.  The current Rust implementation does not

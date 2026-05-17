@@ -33,13 +33,13 @@ Envelope modes:
 - `0x01` `FullSchemaWithId`: `SchemaIdLen + SchemaId + SchemaLen + Schema + Data`
 - `0x02` `SchemaRef`: `SchemaIdLen + SchemaId + Data`
 
-`FullSchemaWithId` reuses the cached schema AST when the schema ID is already in the registry. The decoder now validates the embedded schema bytes against the cached schema by default; callers that intentionally trust the registry entry can disable that check through `DecodeOptions::validate_embedded_schema_on_cache_hit`.
+`FullSchemaWithId` reuses the cached schema AST when the schema ID is already in the registry. The decoder validates the embedded schema bytes against the cached schema by default; only deployments that already trust the schema-id namespace and registry binding should disable that check through `DecodeOptions::validate_embedded_schema_on_cache_hit`. The recommended SHA-256 helper below standardizes identifiers, but it does not authenticate a cache entry by itself.
 
 `SchemaRef` requires an active registry entry.
 
 The format name is `TPACK`, while the v1 wire magic is the fixed 4-byte marker `TPAK`. This repository keeps that marker intentionally for the current draft line so the draft text, examples, tests, and implementation stay wire-compatible. The project does not currently rename the magic just to align spelling.
 
-`SchemaId` remains opaque in the core format. For uncoordinated deployments that do not already have a registry convention, the recommended profile is to hash the canonical schema descriptor bytes and use that digest as the `SchemaId`. This is a recommendation for interoperability, not a core wire requirement.
+`SchemaId` remains opaque in the core format. For uncoordinated deployments that do not already have a registry convention, the recommended profile is to hash the exact bytes returned by `encode_schema(&schema)` and use that bare digest as the `SchemaId`. That hash input excludes the header, envelope fields, `SchemaLen`, and data bytes. This is a recommendation for interoperability, not a core wire requirement.
 
 ## What The Core Guarantees
 
@@ -72,8 +72,9 @@ cargo test --workspace --all-features
 ```
 
 Public interoperability vectors live under `test-vectors/` and are
-consumed directly by `crates/tpack/tests/reference.rs`. The current
-reference-implementation boundary is summarized in
+consumed directly by `crates/tpack/tests/reference.rs`. Cached-schema
+safety behavior is covered by `crates/tpack/tests/cache_validation.rs`.
+The current reference-implementation boundary is summarized in
 `docs/implementation-status.md`.
 
 Additional repository checks are defined in `deny.toml`, `typos.toml`, and the GitHub Actions workflows.

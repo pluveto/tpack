@@ -2,10 +2,14 @@
 
 Command-line tooling for inspecting and canonicalizing TPACK payloads.
 
-The CLI follows the same default cached-schema safety behavior as the
-library APIs: `FullSchemaWithId` registry hits are validated against the
-embedded schema bytes unless a caller explicitly disables that behavior
-through library configuration.
+The standalone CLI does not expose a schema registry or a switch for
+`validate_embedded_schema_on_cache_hit`. In practice it decodes
+`FullSchema` and `FullSchemaWithId` as self-contained messages, and
+`SchemaRef` inputs fail unless an embedding application supplies a
+registry through the library API. If an embedding application chooses the
+recommended SHA-256 helper for `SchemaId`, that still only hashes the
+schema descriptor bytes; `SchemaId` remains opaque on the wire and cache
+binding trust still comes from the embedding deployment.
 
 ## Commands
 

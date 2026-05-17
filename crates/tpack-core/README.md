@@ -8,17 +8,23 @@ This crate is designed for `#![no_std]` with `alloc`. It owns the wire codec, sc
 
 `Decoder<'de>` operates on a borrowed input buffer and advances a cursor through the message. The data path is intended to stay allocation-free for borrowed values.
 
-When `FullSchemaWithId` hits a schema registry entry, the decoder reuses the cached schema AST. By default it still reparses the embedded schema bytes and requires them to match the cached schema before the cached AST is accepted. This keeps cache hits fast without silently trusting mismatched embedded schema payloads.
+When `FullSchemaWithId` hits a schema registry entry, the decoder reuses the cached schema AST. By default it still reparses the embedded schema bytes and requires them to match the cached schema before the cached AST is accepted. Disable that comparison only when the schema-id namespace and registry binding are already authenticated or otherwise trusted for the deployment.
 
 ## Recommended `SchemaId` Helper
 
 `recommended_schema_id_sha256(&Schema)` derives the draft's recommended
 `SchemaId` convention for uncoordinated deployments: SHA-256 over the
-encoded schema descriptor bytes only.
+exact bytes returned by `encode_schema(&schema)`.
+
+That hash input excludes the header, envelope fields, `SchemaLen`, and
+data bytes. The helper returns the bare 32-byte digest; deployments that
+need a prefix or algorithm tag must add it outside the helper.
 
 This is a helper, not a wire requirement. `SchemaId` remains opaque in
 the core format, and deployments may still use registry-issued or
-application-defined identifiers.
+application-defined identifiers. Using the helper is still only a local
+convention, and it does not authenticate a registry binding or cached
+schema reuse decision by itself.
 
 ## Value Model
 
@@ -57,5 +63,7 @@ When canonical checking is enabled, the decoder rejects:
 - root `test-vectors/` exposes the public byte-level vectors
 - `crates/tpack/tests/reference.rs` verifies the draft flat-record
   examples and canonical regression cases
+- `crates/tpack/tests/cache_validation.rs` verifies default cache-hit
+  validation and the explicit opt-out path
 - `docs/implementation-status.md` in the repository root summarizes the
   current implementation boundary

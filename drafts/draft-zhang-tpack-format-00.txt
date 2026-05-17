@@ -73,11 +73,11 @@ Table of Contents
        6.4.1.  Recommended Convention for Uncoordinated
                Deployments . . . . . . . . . . . . . . . . . . . . .  11
      6.5.  Schema Skipping . . . . . . . . . . . . . . . . . . . . .  12
-     6.6.  Unsigned Variable-Length Integer  . . . . . . . . . . . .  12
+     6.6.  Unsigned Variable-Length Integer  . . . . . . . . . . . .  13
      6.7.  Signed Variable-Length Integer  . . . . . . . . . . . . .  13
      6.8.  Text String Component . . . . . . . . . . . . . . . . . .  13
-     6.9.  Byte String Component . . . . . . . . . . . . . . . . . .  13
-   7.  Schema Block  . . . . . . . . . . . . . . . . . . . . . . . .  13
+     6.9.  Byte String Component . . . . . . . . . . . . . . . . . .  14
+   7.  Schema Block  . . . . . . . . . . . . . . . . . . . . . . . .  14
      7.1.  Type Descriptor Encoding  . . . . . . . . . . . . . . . .  14
      7.2.  Type Tag Registry . . . . . . . . . . . . . . . . . . . .  14
      7.3.  Primitive Type Descriptors  . . . . . . . . . . . . . . .  16
@@ -600,16 +600,16 @@ Internet-Draft                    TPACK                         May 2026
    input SHOULD be exactly the validated on-wire TypeDescriptor encoded
    with shortest UVarInt forms and zero field flags.
 
+   Hashing an entire FullSchema or FullSchemaWithId message does not
+   follow this convention.
+
    SHA-256 is RECOMMENDED for this convention because it is widely
    deployed and well understood.  Deployments MAY use another collision-
    resistant hash by prior agreement, and MAY prepend an application-
    specific prefix or algorithm identifier if they need domain
    separation.
 
-   This convention is informative only.  It does not change the core
-   wire format, does not make SchemaId a hash by definition, and does
-   not prohibit registry-issued identifiers, stream-local identifiers,
-   or application-defined names encoded as bytes.
+
 
 
 
@@ -617,6 +617,11 @@ Zhang                   Expires 17 November 2026               [Page 11]
 
 Internet-Draft                    TPACK                         May 2026
 
+
+   This convention is informative only.  It does not change the core
+   wire format, does not make SchemaId a hash by definition, and does
+   not prohibit registry-issued identifiers, stream-local identifiers,
+   or application-defined names encoded as bytes.
 
 6.5.  Schema Skipping
 
@@ -633,6 +638,10 @@ Internet-Draft                    TPACK                         May 2026
    decoder to compare the embedded schema bytes against the cached
    schema before the message is accepted.  Such a policy is compatible
    with this specification and can reduce cache-confusion risk.
+
+   Even when SchemaId values follow the recommended hash convention,
+   that convention alone does not authenticate a cache namespace or
+   registry binding.
 
    If a FullSchemaWithId cache lookup misses, the decoder MUST read and
    validate the SchemaLen-delimited TypeDescriptor.  If validation
@@ -656,6 +665,15 @@ Internet-Draft                    TPACK                         May 2026
      SCHEMA_LENGTH_EXCEEDED
      SCHEMA_LENGTH_MISMATCH
 
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 12]
+
+Internet-Draft                    TPACK                         May 2026
+
+
 6.6.  Unsigned Variable-Length Integer
 
    UVarInt encodes a non-negative integer using base-128 little-endian
@@ -666,13 +684,6 @@ Internet-Draft                    TPACK                         May 2026
    follows.  If it is 0, the integer ends.
 
    The numeric value is:
-
-
-
-Zhang                   Expires 17 November 2026               [Page 12]
-
-Internet-Draft                    TPACK                         May 2026
-
 
      value = sum((octet[i] & 0x7f) << (7 * i))
 
@@ -711,6 +722,14 @@ Internet-Draft                    TPACK                         May 2026
    visible characters.  Decoders MUST validate UTF-8 according to
    [RFC3629].
 
+
+
+
+Zhang                   Expires 17 November 2026               [Page 13]
+
+Internet-Draft                    TPACK                         May 2026
+
+
 6.9.  Byte String Component
 
    A byte string component is encoded as:
@@ -721,14 +740,6 @@ Internet-Draft                    TPACK                         May 2026
    Byte string content is uninterpreted by this specification.
 
 7.  Schema Block
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 13]
-
-Internet-Draft                    TPACK                         May 2026
-
 
 7.1.  Type Descriptor Encoding
 
@@ -752,17 +763,6 @@ Internet-Draft                    TPACK                         May 2026
 7.2.  Type Tag Registry
 
    The following tags are defined by TPACK version 1:
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -1634,8 +1634,9 @@ Internet-Draft                    TPACK                         May 2026
    a SchemaId already exists in the local registry, the decoder reparses
    the embedded schema block and rejects the message if the embedded
    schema does not equal the cached schema.  Callers can disable that
-   comparison by local policy, but the stricter behavior is the default
-   in the reference code.
+   comparison by local policy, but only when the SchemaId namespace and
+   binding source are already trusted out of band.  The stricter
+   behavior is the default in the reference code.
 
    The specification data model defines Decimal, BigInt, and BigUInt as
    arbitrary-precision types.  The current Rust implementation does not
@@ -1672,7 +1673,6 @@ Internet-Draft                    TPACK                         May 2026
    executable test vectors, not merely illustrative prose.
 
    The accompanying Rust test suite verifies at least the following:
-
 
 
 

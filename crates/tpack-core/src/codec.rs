@@ -73,8 +73,11 @@ pub struct DecodeOptions {
     ///
     /// When enabled, the decoder reparses the embedded schema block and
     /// requires it to match the cached schema before reusing the cached AST.
-    /// Disable this only when the registry entry is already trusted and the
-    /// embedded schema bytes do not need to be checked.
+    /// Disable this only when the schema-id namespace and registry binding are
+    /// already authenticated or otherwise trusted for the deployment and the
+    /// embedded schema bytes do not need to be checked. The recommended
+    /// SHA-256 helper standardizes identifier derivation but does not
+    /// authenticate a cache entry by itself.
     pub validate_embedded_schema_on_cache_hit: bool,
     pub limits: Limits,
 }
@@ -892,8 +895,17 @@ pub fn encode_schema(schema: &Schema) -> Result<Vec<u8>> {
 ///
 /// This helper follows the draft's recommended convention for
 /// uncoordinated deployments: hash the canonical encoded TypeDescriptor
-/// bytes only. It does not change the core wire format and does not make
-/// SchemaId hash-derived by requirement.
+/// bytes only. In this implementation that means SHA-256 over the exact
+/// bytes returned by [`encode_schema`], excluding the header, envelope
+/// fields, SchemaLen, and data bytes. The helper returns the bare 32-byte
+/// digest; deployments that need a prefix or algorithm tag must add that
+/// outside this function.
+///
+/// This helper does not change the core wire format, does not make
+/// `SchemaId` hash-derived by requirement, and does not authenticate a
+/// registry binding or cached-schema reuse decision by itself. `SchemaId`
+/// remains an opaque byte string in the format; using this helper is a
+/// local deployment convention.
 pub fn recommended_schema_id_sha256(schema: &Schema) -> Result<[u8; 32]> {
     let schema_bytes = encode_schema(schema)?;
     let digest = Sha256::digest(schema_bytes);
@@ -910,6 +922,13 @@ pub fn encode_value(schema: &Schema, value: &TpackValue<'_>) -> Result<Vec<u8>> 
 mod tests {
     use super::*;
     use alloc::{borrow::Cow, vec};
+
+    fn sha256(bytes: &[u8]) -> [u8; 32] {
+        let digest = Sha256::digest(bytes);
+        let mut output = [0u8; 32];
+        output.copy_from_slice(digest.as_slice());
+        output
+    }
 
     fn flat_schema() -> Schema {
         Schema::new(TypeDescriptor::Struct(vec![
@@ -1055,5 +1074,43 @@ mod tests {
         let digest_modified =
             recommended_schema_id_sha256(&modified_schema).expect("derive schema id");
         assert_ne!(digest_a, digest_modified);
+    }
+
+    #[test]
+    fn recommended_schema_id_sha256_matches_canonical_descriptor_bytes_only() {
+        let schema = flat_schema();
+        let canonical_schema_bytes = encode_schema(&schema).expect("encode canonical schema");
+        let digest = recommended_schema_id_sha256(&schema).expect("derive schema id");
+        assert_eq!(digest, sha256(&canonical_schema_bytes));
+
+        let mut noncanonical_schema_bytes = canonical_schema_bytes.clone();
+        assert_eq!(noncanonical_schema_bytes[0], 0x20);
+        assert_eq!(noncanonical_schema_bytes[1], 0x05);
+        noncanonical_schema_bytes[1] = 0x85;
+        noncanonical_schema_bytes.insert(2, 0x00);
+
+        let decoded_from_noncanonical = Decoder::new(&noncanonical_schema_bytes)
+            .decode_schema()
+            .expect("decode noncanonical schema bytes");
+        assert_eq!(decoded_from_noncanonical, schema);
+        assert_eq!(
+            recommended_schema_id_sha256(&decoded_from_noncanonical).expect("derive schema id"),
+            digest
+        );
+    }
+
+    #[test]
+    fn recommended_schema_id_sha256_rejects_invalid_schema_ast() {
+        let invalid_schema = Schema::new(TypeDescriptor::Struct(vec![
+            Field::new(1, "qty", TypeDescriptor::I32),
+            Field::new(1, "qty_alias", TypeDescriptor::I64),
+        ]));
+
+        let err = recommended_schema_id_sha256(&invalid_schema)
+            .expect_err("invalid schema must be rejected");
+        assert!(matches!(
+            err.kind(),
+            ErrorKind::Invalid(message) if message.contains("duplicate struct field")
+        ));
     }
 }

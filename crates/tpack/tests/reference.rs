@@ -110,6 +110,16 @@ mod reference_cases {
 
         let with_id_bytes = draft_flat_with_id_hex();
         let mut decoder = Decoder::new(&with_id_bytes);
+        let with_id_without_cache = decoder.decode_message().unwrap();
+        assert_eq!(
+            with_id_without_cache.envelope.mode,
+            EnvelopeMode::FullSchemaWithId
+        );
+        assert!(!with_id_without_cache.envelope.used_cached_schema);
+        assert_eq!(with_id_without_cache.schema.as_ref(), &schema);
+        assert_eq!(with_id_without_cache.value, flat_value());
+
+        let mut decoder = Decoder::new(&with_id_bytes);
         let with_id = decoder.decode_message_with_registry(&registry).unwrap();
         assert_eq!(with_id.envelope.mode, EnvelopeMode::FullSchemaWithId);
         assert!(with_id.envelope.used_cached_schema);

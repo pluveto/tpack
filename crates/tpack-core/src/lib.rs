@@ -12,7 +12,7 @@ mod value;
 
 pub use codec::{
     CanonicalMode, DecodeOptions, Decoder, EncodeOptions, Encoder, Limits, MAGIC, VERSION,
-    decode_message, encode_message, encode_schema, encode_value,
+    decode_message, encode_message, encode_schema, encode_value, recommended_schema_id_sha256,
 };
 pub use error::{Error, ErrorKind, ErrorPath, ErrorSource, PathSegment, Result};
 pub use native::{FromTpackValue, TpackDeserialize, TpackSerialize};

@@ -1,5 +1,6 @@
 use alloc::{borrow::Cow, boxed::Box, collections::BTreeSet, string::String, sync::Arc, vec::Vec};
 use core::cmp::Ordering;
+use sha2::{Digest, Sha256};
 
 mod encode;
 mod validate;
@@ -887,6 +888,20 @@ pub fn encode_schema(schema: &Schema) -> Result<Vec<u8>> {
     encode::schema(schema, EncodeOptions::default())
 }
 
+/// Derive the recommended SHA-256-based SchemaId bytes for a schema.
+///
+/// This helper follows the draft's recommended convention for
+/// uncoordinated deployments: hash the canonical encoded TypeDescriptor
+/// bytes only. It does not change the core wire format and does not make
+/// SchemaId hash-derived by requirement.
+pub fn recommended_schema_id_sha256(schema: &Schema) -> Result<[u8; 32]> {
+    let schema_bytes = encode_schema(schema)?;
+    let digest = Sha256::digest(schema_bytes);
+    let mut output = [0u8; 32];
+    output.copy_from_slice(digest.as_slice());
+    Ok(output)
+}
+
 pub fn encode_value(schema: &Schema, value: &TpackValue<'_>) -> Result<Vec<u8>> {
     encode::value(&schema.root, value, EncodeOptions::default())
 }
@@ -1013,5 +1028,32 @@ mod tests {
             encode::schema(&schema, options).unwrap_err().kind(),
             ErrorKind::SchemaLengthExceeded
         ));
+    }
+
+    #[test]
+    fn recommended_schema_id_sha256_is_stable_and_schema_sensitive() {
+        let schema = flat_schema();
+        let digest_a = recommended_schema_id_sha256(&schema).expect("derive schema id");
+        let digest_b = recommended_schema_id_sha256(&schema).expect("derive schema id");
+        assert_eq!(digest_a, digest_b);
+        assert_eq!(digest_a.len(), 32);
+
+        let modified_schema = Schema::new(TypeDescriptor::Struct(vec![
+            Field::new(1, "id", TypeDescriptor::String { max_len: Some(64) }),
+            Field::new(
+                2,
+                "price",
+                TypeDescriptor::DecimalFixed {
+                    precision: 18,
+                    scale: 4,
+                },
+            ),
+            Field::new(3, "tax", TypeDescriptor::Decimal),
+            Field::new(4, "qty", TypeDescriptor::I64),
+            Field::new(5, "ts", TypeDescriptor::I64),
+        ]));
+        let digest_modified =
+            recommended_schema_id_sha256(&modified_schema).expect("derive schema id");
+        assert_ne!(digest_a, digest_modified);
     }
 }

@@ -11,7 +11,7 @@ use self::value::ValueDeserializer;
 /// Configurable entry point for serde-based TPACK deserialization.
 ///
 /// This object carries the optional schema registry and decode limits so the
-/// module API does not need a growing family of `_with_*` helper functions.
+/// module API can stay free of a growing family of `_with_*` helper functions.
 #[derive(Clone, Copy)]
 pub struct Deserializer<'a> {
     registry: Option<&'a dyn SchemaRegistry>,

@@ -6,10 +6,6 @@
 
 TPACK is a strictly typed, self-describing binary serialization format. This repository is the Rust reference implementation for v1.
 
-The design target is simple: keep decoding deterministic, schema-aware, and low-overhead without requiring out-of-band `.proto` files or a separate schema negotiation protocol.
-
-The intended positioning is narrower than "generic binary format for everything". TPACK defaults to one self-contained typed value per message, with the complete schema carried on the wire unless a cached-schema profile is explicitly in use. That makes it closer to schema-carrying interchange than to Avro single-object encoding, Arrow IPC batches, or CBOR values validated against a separate CDDL schema.
-
 ## Workspace Layout
 
 The workspace is split by responsibility:
@@ -33,17 +29,11 @@ Envelope modes:
 - `0x01` `FullSchemaWithId`: `SchemaIdLen + SchemaId + SchemaLen + Schema + Data`
 - `0x02` `SchemaRef`: `SchemaIdLen + SchemaId + Data`
 
-`FullSchemaWithId` reuses the cached schema AST when the schema ID is already in the registry. The decoder validates the embedded schema bytes against the cached schema by default; only deployments that already trust the schema-id namespace and registry binding should disable that check through `DecodeOptions::validate_embedded_schema_on_cache_hit`. If the embedded schema and cached binding differ, that is a schema-id collision or configuration error for that registry scope and the message must be rejected. Neither the SHA-256 default nor the compact `xxh64-v1` profile authenticates a cache entry by itself.
+`FullSchemaWithId` reuses the cached schema AST when the schema ID is already in the registry. The decoder validates the embedded schema bytes against the cached schema by default.
 
-`SchemaRef` requires an active registry entry. It must also be rejected when the binding is ambiguous, expired, or out of scope for the active cached-schema profile.
+`SchemaRef` requires an active registry entry.
 
-The format name is `TPACK`, while the v1 wire magic is the fixed 4-byte marker `TPAK`. This repository keeps that marker intentionally for the current draft line so the draft text, examples, tests, and implementation stay wire-compatible. The project does not currently rename the magic just to align spelling.
-
-`SchemaId` remains opaque in the core format. For uncoordinated or cross-deployment interoperability, the primary recommended profile is to hash the exact bytes returned by `encode_schema(&schema)` with SHA-256 and use that bare 32-byte digest as the `SchemaId`. That hash input excludes the header, envelope fields, `SchemaLen`, and data bytes. This remains the main default because it gives a stable open convention with strong collision resistance for independent implementations and long-lived registries.
-
-This repository also documents an official compact 64-bit profile named `xxh64-v1`: compute `xxHash64(seed=0)` over the same canonical `TypeDescriptor` bytes and serialize the result as a fixed 8-byte big-endian `SchemaId`. The point of `xxh64-v1` is compactness and lower implementation cost in bounded deployments, not open interoperability. It is appropriate for single-authority registries, connection-local caches, boot-session caches, or other constrained profiles that explicitly bound the collision domain.
-
-For constrained or local profiles, the format still permits `xxh64-v1`, registry-issued IDs, connection-local IDs, boot-session-local IDs, or other profile-defined names. Those names are still only identifiers, not proof of schema identity across deployments, and such profiles need an explicit scope, reset rule, and collision policy. Once that scope is lost, expired, or ambiguous, `SchemaRef` must fail instead of guessing.
+`SchemaId` remains opaque in the core format.
 
 ## What The Core Guarantees
 
@@ -65,7 +55,7 @@ The draft data model defines `Decimal`, `BigInt`, and `BigUInt` as arbitrary-pre
 - `BigInt` currently maps to `i64`
 - `BigUInt` currently maps to `u64`
 
-That means the current implementation is a conforming executable reference only for messages whose values fit inside those ranges. This is an implementation boundary, not a wire-format redesign signal.
+That means the current implementation is a conforming executable reference only for messages whose values fit inside those ranges.
 
 ## Verification
 

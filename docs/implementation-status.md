@@ -13,8 +13,8 @@ reference implementation relative to
 - cached-schema decode paths, including embedded-schema validation on
   `FullSchemaWithId` registry hits by default
 - CLI inspection and canonicalization helpers for self-contained
-  messages; the standalone CLI does not expose registry configuration
-  for `SchemaRef`
+  messages; the standalone CLI keeps registry configuration out of
+  scope for `SchemaRef`
 - public byte-level vectors under `test-vectors/`, consumed by
   `crates/tpack/tests/reference.rs`, including the draft flat-record
   examples from the Examples section
@@ -34,8 +34,8 @@ Rust value model is still bounded:
 
 This means the reference implementation is useful for validating
 envelope layout, schema descriptors, data ordering, and canonical byte
-rules, but it does not yet provide the full unbounded numeric semantics
-described by the draft.
+rules, while the full unbounded numeric semantics described by the draft
+remain outside the current value model.
 
 The Rust API now exposes both documented helper placements:
 
@@ -45,8 +45,8 @@ The Rust API now exposes both documented helper placements:
 - `tpack::recommended_schema_id_sha256` for the open-interoperability
   SHA-256 profile over the same canonical schema descriptor bytes
 
-Neither helper authenticates a cache namespace or registry binding by
-itself.
+Both helpers leave cache namespace and registry binding authentication to
+the embedding application.
 
 The current decoder already fails closed on `FullSchemaWithId` cache-hit
 conflicts: if a registry entry exists for a `SchemaId` and the embedded
@@ -55,15 +55,15 @@ schema decodes differently, decode fails with
 
 For constrained-device or local profiles that use `xxh64-v1`, another
 faster hash, or a locally assigned `SchemaId`, the core codec still
-only sees opaque bytes. Scope, reset behavior, and when `SchemaRef` is
-admissible remain deployment policy outside the codec. Those profiles
-must stay fail-closed on ambiguity, stale bindings, or observed
-collisions.
+only sees opaque bytes. Scope, reset behavior, and `SchemaRef`
+admissibility remain deployment policy outside the codec. Those
+profiles must stay fail-closed on ambiguity, stale bindings, or
+observed collisions.
 
 ## Deliberately Not Changed In This Sync
 
-- no `TPACK`/`TPAK` magic rename in code or vectors; the current draft
-  and implementation still both use ASCII `TPAK`
+- `TPACK`/`TPAK` magic stays unchanged in code or vectors; the current
+  draft and implementation both use ASCII `TPAK`
 - no rewrite of `BigInt`, `BigUInt`, or decimal backing types
 - no changes to map sentinels, union tagging, field flags, or the core
   type model

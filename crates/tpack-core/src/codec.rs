@@ -79,11 +79,10 @@ pub struct DecodeOptions {
     /// silently trusting the cached AST.
     ///
     /// Disable this only when the schema-id namespace and registry binding are
-    /// already authenticated or otherwise trusted for the deployment and the
-    /// embedded schema bytes do not need to be checked. Content-derived
-    /// schema-id helpers standardize identifier derivation but do not
-    /// authenticate a cache entry by themselves. `SchemaRef` has no embedded
-    /// schema bytes, so it always depends on the caller's registry binding.
+    /// already authenticated or otherwise trusted for the deployment.
+    /// Content-derived schema-id helpers standardize identifier derivation.
+    /// `SchemaRef` has no embedded schema bytes, so it always depends on the
+    /// caller's registry binding.
     pub validate_embedded_schema_on_cache_hit: bool,
     pub limits: Limits,
 }

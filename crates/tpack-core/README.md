@@ -17,26 +17,20 @@ embedded-schema mismatch instead of silently trusting the cached AST.
 so conflicting, stale, or out-of-scope bindings must be treated as a
 profile or registry error by the caller.
 
-## Recommended `SchemaId` Helper
+## SchemaId Derivation
 
-`recommended_schema_id_xxh64_v1(&Schema)` derives this crate's compact
-helper for the repository's official `xxh64-v1` profile:
-`xxHash64(seed=0)` over the exact bytes returned by
-`encode_schema(&schema)`, encoded as a fixed 8-byte big-endian output.
+`tpack-core` deliberately does not define or depend on a hash helper for
+`SchemaId` derivation. Use `encode_schema(&Schema)` to obtain the
+canonical `TypeDescriptor` bytes and derive any local identifier
+convention in the higher-level crate or application layer.
 
-That hash input excludes the header, envelope fields, `SchemaLen`, and
-data bytes.
+Those bytes exclude the header, envelope fields, `SchemaLen`, and data
+bytes. `SchemaId` remains opaque in the core format, and deployments may
+still use registry-issued or application-defined identifiers.
 
-This is a helper, not a wire requirement. `SchemaId` remains opaque in
-the core format, and deployments may still use registry-issued or
-application-defined identifiers. Using this helper is still only a local
-convention, and it does not authenticate a registry binding or cached
-schema reuse decision by itself.
-
-Deployments that use `recommended_schema_id_xxh64_v1` still need an
-explicit scope, reset rule, and collision policy. Once the binding
-scope is lost, expired, ambiguous, or conflicting, `SchemaRef` must be
-rejected.
+Any local scheme still needs an explicit scope, reset rule, and collision
+policy. Once the binding scope is lost, expired, ambiguous, or
+conflicting, `SchemaRef` must be rejected.
 
 ## Value Model
 

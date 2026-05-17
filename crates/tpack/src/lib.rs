@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+use xxhash_rust::xxh64::xxh64;
+
 pub use tpack_core::*;
 
 #[cfg(feature = "derive")]
@@ -139,3 +141,29 @@ pub use std_registry::{SchemaBindingConflict, StdSchemaRegistry};
 
 #[cfg(feature = "serde_support")]
 pub mod serde_support;
+
+/// Derive the official `xxh64-v1` SchemaId bytes for a schema.
+///
+/// This helper hashes the canonical encoded TypeDescriptor bytes only. In
+/// this implementation that means xxHash64 with seed `0` over the exact bytes
+/// returned by [`encode_schema`], excluding the header, envelope fields,
+/// `SchemaLen`, and data bytes. The helper returns the fixed 8-byte
+/// big-endian representation of that `u64`; deployments that need a prefix or
+/// algorithm tag must add that outside this function.
+///
+/// If the derived bytes are already bound to a different schema in a local
+/// registry, that collision or misbinding must be resolved by the caller.
+/// With the default decoder settings, `FullSchemaWithId` cache hits fail
+/// closed with [`ErrorKind::EmbeddedSchemaMismatch`] when the embedded
+/// descriptor disagrees with the cached schema; `SchemaRef` still trusts the
+/// caller's registry entry because it carries no embedded schema bytes.
+///
+/// This helper does not change the core wire format, does not make `SchemaId`
+/// hash-derived by requirement, and does not authenticate a registry binding
+/// or cached-schema reuse decision by itself. `SchemaId` remains an opaque
+/// byte string in the format; using this helper is a local deployment
+/// convention.
+pub fn recommended_schema_id_xxh64_v1(schema: &Schema) -> Result<[u8; 8]> {
+    let schema_bytes = encode_schema(schema)?;
+    Ok(xxh64(&schema_bytes, 0).to_be_bytes())
+}

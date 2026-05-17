@@ -20,6 +20,10 @@ For low-latency use cases, prefer the native traits and a schema registry that c
 the repository's `xxh64-v1` profile: a fixed 8-byte big-endian
 `SchemaId` derived from `encode_schema(&schema)`.
 
+`tpack-core` intentionally stops at `encode_schema(&schema)` and does not
+carry any hash dependency. The official `xxh64-v1` helper lives here in
+the `std` facade.
+
 Current conformance boundary:
 
 - `Decimal` and `Decimal(P,S)` are still `i64`-backed in the exposed

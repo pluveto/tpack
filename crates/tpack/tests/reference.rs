@@ -111,6 +111,43 @@ mod reference_cases {
 
     #[cfg(feature = "std")]
     #[test]
+    fn schema_id_helper_is_schema_sensitive_and_rejects_invalid_schema_ast() {
+        let schema = flat_schema();
+        let digest_a = recommended_schema_id_xxh64_v1(&schema).unwrap();
+        let digest_b = recommended_schema_id_xxh64_v1(&schema).unwrap();
+        assert_eq!(digest_a, digest_b);
+
+        let modified_schema = Schema::new(TypeDescriptor::Struct(vec![
+            Field::new(1, "id", TypeDescriptor::String { max_len: Some(64) }),
+            Field::new(
+                2,
+                "price",
+                TypeDescriptor::DecimalFixed {
+                    precision: 18,
+                    scale: 4,
+                },
+            ),
+            Field::new(3, "tax", TypeDescriptor::Decimal),
+            Field::new(4, "qty", TypeDescriptor::I64),
+            Field::new(5, "ts", TypeDescriptor::I64),
+        ]));
+        let modified_digest = recommended_schema_id_xxh64_v1(&modified_schema).unwrap();
+        assert_ne!(digest_a, modified_digest);
+
+        let invalid_schema = Schema::new(TypeDescriptor::Struct(vec![
+            Field::new(1, "qty", TypeDescriptor::I32),
+            Field::new(1, "qty_alias", TypeDescriptor::I64),
+        ]));
+        let err = recommended_schema_id_xxh64_v1(&invalid_schema)
+            .expect_err("invalid schema must be rejected");
+        assert!(matches!(
+            err.kind(),
+            ErrorKind::Invalid(message) if message.contains("duplicate struct field")
+        ));
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
     fn draft_examples_envelopes_decode_and_canonicalize() {
         let schema = flat_schema();
         let value = flat_value();

@@ -39,13 +39,12 @@ remain outside the current value model.
 
 The Rust API exposes one official helper profile:
 
-- `tpack_core::recommended_schema_id_xxh64_v1`, re-exported by `tpack`,
-  for the compact `xxh64-v1` profile, defined as
-  `xxHash64(seed=0)` over the canonical schema descriptor bytes with a
-  fixed 8-byte big-endian output
+- `tpack::recommended_schema_id_xxh64_v1` for the compact `xxh64-v1`
+  profile, defined as `xxHash64(seed=0)` over the canonical schema
+  descriptor bytes with a fixed 8-byte big-endian output
 
-This helper still leaves cache namespace and registry binding
-authentication to the embedding application.
+This helper leaves cache namespace and registry binding authentication
+to the embedding application.
 
 The current decoder already fails closed on `FullSchemaWithId` cache-hit
 conflicts: if a registry entry exists for a `SchemaId` and the embedded

@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+use sha2::{Digest, Sha256};
+
 pub use tpack_core::*;
 
 #[cfg(feature = "derive")]
@@ -139,3 +141,18 @@ pub use std_registry::{SchemaBindingConflict, StdSchemaRegistry};
 
 #[cfg(feature = "serde_support")]
 pub mod serde_support;
+
+/// Derive the recommended SHA-256-based SchemaId bytes for a schema.
+///
+/// This facade helper keeps the stronger digest available for deployments that
+/// want the draft's SHA-256 convention while leaving `tpack-core` free of the
+/// heavier dependency. The hash input is the canonical schema descriptor bytes
+/// returned by [`encode_schema`], excluding the header, envelope fields,
+/// `SchemaLen`, and data bytes. The helper returns the bare 32-byte digest.
+pub fn recommended_schema_id_sha256(schema: &Schema) -> Result<[u8; 32]> {
+    let schema_bytes = encode_schema(schema)?;
+    let digest = Sha256::digest(schema_bytes);
+    let mut output = [0u8; 32];
+    output.copy_from_slice(digest.as_slice());
+    Ok(output)
+}

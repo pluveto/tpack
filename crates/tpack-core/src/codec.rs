@@ -1,6 +1,6 @@
 use alloc::{borrow::Cow, boxed::Box, collections::BTreeSet, string::String, sync::Arc, vec::Vec};
 use core::cmp::Ordering;
-use sha2::{Digest, Sha256};
+use xxhash_rust::xxh64::xxh64;
 
 mod encode;
 mod validate;
@@ -80,9 +80,9 @@ pub struct DecodeOptions {
     ///
     /// Disable this only when the schema-id namespace and registry binding are
     /// already authenticated or otherwise trusted for the deployment and the
-    /// embedded schema bytes do not need to be checked. The recommended
-    /// SHA-256 helper standardizes identifier derivation but does not
-    /// authenticate a cache entry by itself. `SchemaRef` has no embedded
+    /// embedded schema bytes do not need to be checked. Content-derived
+    /// schema-id helpers standardize identifier derivation but do not
+    /// authenticate a cache entry by themselves. `SchemaRef` has no embedded
     /// schema bytes, so it always depends on the caller's registry binding.
     pub validate_embedded_schema_on_cache_hit: bool,
     pub limits: Limits,
@@ -896,10 +896,10 @@ pub fn encode_message(
 /// Encode only the schema descriptor bytes for a schema.
 ///
 /// The returned bytes are the exact input consumed by
-/// [`recommended_schema_id_sha256`]. Callers that do not want SHA-256 can
-/// derive any local `SchemaId` convention from these bytes, including
-/// precomputed or provisioned identifiers, and then pass the resulting opaque
-/// bytes to [`encode_message`] and their schema registry.
+/// [`recommended_schema_id_xxh64_v1`]. Callers can also derive any other local
+/// `SchemaId` convention from these bytes, including precomputed or
+/// provisioned identifiers, and then pass the resulting opaque bytes to
+/// [`encode_message`] and their schema registry.
 ///
 /// Collision detection and registry policy stay with the caller. If two
 /// distinct schemas are assigned the same local `SchemaId`, default
@@ -911,15 +911,14 @@ pub fn encode_schema(schema: &Schema) -> Result<Vec<u8>> {
     encode::schema(schema, EncodeOptions::default())
 }
 
-/// Derive the recommended SHA-256-based SchemaId bytes for a schema.
+/// Derive the lightweight recommended xxh64-v1 SchemaId bytes for a schema.
 ///
-/// This helper follows the draft's recommended convention for
-/// uncoordinated deployments: hash the canonical encoded TypeDescriptor
-/// bytes only. In this implementation that means SHA-256 over the exact
-/// bytes returned by [`encode_schema`], excluding the header, envelope
-/// fields, SchemaLen, and data bytes. The helper returns the bare 32-byte
-/// digest; deployments that need a prefix or algorithm tag must add that
-/// outside this function.
+/// This helper hashes the canonical encoded TypeDescriptor bytes only. In this
+/// implementation that means xxHash64 with seed `0` over the exact bytes
+/// returned by [`encode_schema`], excluding the header, envelope fields,
+/// `SchemaLen`, and data bytes. The helper returns the fixed 8-byte big-endian
+/// representation of that `u64`; deployments that need a prefix or algorithm
+/// tag must add that outside this function.
 ///
 /// If the derived bytes are ever already bound to a different schema in a
 /// local registry, that collision or misbinding must be resolved by the
@@ -932,15 +931,12 @@ pub fn encode_schema(schema: &Schema) -> Result<Vec<u8>> {
 /// `SchemaId` hash-derived by requirement, and does not authenticate a
 /// registry binding or cached-schema reuse decision by itself. `SchemaId`
 /// remains an opaque byte string in the format; using this helper is a
-/// local deployment convention. Use it when you want the draft's recommended
+/// local deployment convention. Use it when you want a lightweight
 /// content-derived default, and use [`encode_schema`] directly when you need
 /// a different local `SchemaId` derivation.
-pub fn recommended_schema_id_sha256(schema: &Schema) -> Result<[u8; 32]> {
+pub fn recommended_schema_id_xxh64_v1(schema: &Schema) -> Result<[u8; 8]> {
     let schema_bytes = encode_schema(schema)?;
-    let digest = Sha256::digest(schema_bytes);
-    let mut output = [0u8; 32];
-    output.copy_from_slice(digest.as_slice());
-    Ok(output)
+    Ok(xxh64(&schema_bytes, 0).to_be_bytes())
 }
 
 pub fn encode_value(schema: &Schema, value: &TpackValue<'_>) -> Result<Vec<u8>> {
@@ -951,13 +947,6 @@ pub fn encode_value(schema: &Schema, value: &TpackValue<'_>) -> Result<Vec<u8>> 
 mod tests {
     use super::*;
     use alloc::{borrow::Cow, vec};
-
-    fn sha256(bytes: &[u8]) -> [u8; 32] {
-        let digest = Sha256::digest(bytes);
-        let mut output = [0u8; 32];
-        output.copy_from_slice(digest.as_slice());
-        output
-    }
 
     fn flat_schema() -> Schema {
         Schema::new(TypeDescriptor::Struct(vec![
@@ -1079,12 +1068,13 @@ mod tests {
     }
 
     #[test]
-    fn recommended_schema_id_sha256_is_stable_and_schema_sensitive() {
+    fn recommended_schema_id_xxh64_v1_is_stable_and_schema_sensitive() {
         let schema = flat_schema();
-        let digest_a = recommended_schema_id_sha256(&schema).expect("derive schema id");
-        let digest_b = recommended_schema_id_sha256(&schema).expect("derive schema id");
+        let digest_a = recommended_schema_id_xxh64_v1(&schema).expect("derive schema id");
+        let digest_b = recommended_schema_id_xxh64_v1(&schema).expect("derive schema id");
         assert_eq!(digest_a, digest_b);
-        assert_eq!(digest_a.len(), 32);
+        assert_eq!(digest_a.len(), 8);
+        assert_eq!(digest_a, [0x23, 0x73, 0x76, 0xF7, 0x21, 0xB6, 0x0A, 0x41]);
 
         let modified_schema = Schema::new(TypeDescriptor::Struct(vec![
             Field::new(1, "id", TypeDescriptor::String { max_len: Some(64) }),
@@ -1101,16 +1091,16 @@ mod tests {
             Field::new(5, "ts", TypeDescriptor::I64),
         ]));
         let digest_modified =
-            recommended_schema_id_sha256(&modified_schema).expect("derive schema id");
+            recommended_schema_id_xxh64_v1(&modified_schema).expect("derive schema id");
         assert_ne!(digest_a, digest_modified);
     }
 
     #[test]
-    fn recommended_schema_id_sha256_matches_canonical_descriptor_bytes_only() {
+    fn recommended_schema_id_xxh64_v1_matches_canonical_descriptor_bytes_only() {
         let schema = flat_schema();
         let canonical_schema_bytes = encode_schema(&schema).expect("encode canonical schema");
-        let digest = recommended_schema_id_sha256(&schema).expect("derive schema id");
-        assert_eq!(digest, sha256(&canonical_schema_bytes));
+        let digest = recommended_schema_id_xxh64_v1(&schema).expect("derive schema id");
+        assert_eq!(digest, xxh64(&canonical_schema_bytes, 0).to_be_bytes());
 
         let mut noncanonical_schema_bytes = canonical_schema_bytes.clone();
         assert_eq!(noncanonical_schema_bytes[0], 0x20);
@@ -1123,19 +1113,19 @@ mod tests {
             .expect("decode noncanonical schema bytes");
         assert_eq!(decoded_from_noncanonical, schema);
         assert_eq!(
-            recommended_schema_id_sha256(&decoded_from_noncanonical).expect("derive schema id"),
+            recommended_schema_id_xxh64_v1(&decoded_from_noncanonical).expect("derive schema id"),
             digest
         );
     }
 
     #[test]
-    fn recommended_schema_id_sha256_rejects_invalid_schema_ast() {
+    fn recommended_schema_id_xxh64_v1_rejects_invalid_schema_ast() {
         let invalid_schema = Schema::new(TypeDescriptor::Struct(vec![
             Field::new(1, "qty", TypeDescriptor::I32),
             Field::new(1, "qty_alias", TypeDescriptor::I64),
         ]));
 
-        let err = recommended_schema_id_sha256(&invalid_schema)
+        let err = recommended_schema_id_xxh64_v1(&invalid_schema)
             .expect_err("invalid schema must be rejected");
         assert!(matches!(
             err.kind(),

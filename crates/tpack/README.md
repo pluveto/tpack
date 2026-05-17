@@ -14,7 +14,7 @@ This crate re-exports the core API and derive macros, and it hosts convenience f
 
 For low-latency use cases, prefer the native traits and a schema registry that can resolve `SchemaRef` payloads without extra work.
 
-When decoding `FullSchemaWithId` with a registry hit, the default path reparses the embedded schema bytes and requires them to match the cached schema before reusing the cached AST. Set `DecodeOptions::validate_embedded_schema_on_cache_hit` to `false` only when the schema-id namespace and registry binding are already authenticated or otherwise trusted for the deployment. A mismatch is a schema-id collision or configuration error for that binding scope and should be treated as fatal. The recommended SHA-256 helper below is only an identifier convention; it does not authenticate a cache entry by itself.
+When decoding `FullSchemaWithId` with a registry hit, the default path reparses the embedded schema bytes and requires them to match the cached schema before reusing the cached AST. Set `DecodeOptions::validate_embedded_schema_on_cache_hit` to `false` only when the schema-id namespace and registry binding are already authenticated or otherwise trusted for the deployment. A mismatch is a schema-id collision or configuration error for that binding scope and should be treated as fatal. The SHA-256 default and the compact `xxh64-v1` profile are only identifier conventions; neither authenticates a cache entry by itself.
 
 `StdSchemaRegistry` now follows that default fail-closed rule at insert
 time: `insert` / `insert_shared` reject rebinding the same `SchemaId` to
@@ -30,22 +30,33 @@ registry freshness stay with the embedding application. Ambiguous,
 expired, or out-of-scope bindings must be rejected before `SchemaRef`
 decode.
 
-For deployments that want the draft's recommended default `SchemaId`
-convention, use `recommended_schema_id_sha256(&schema)` and pass the
-resulting bare 32-byte digest as opaque `SchemaId` bytes. The hash input
-is the exact descriptor bytes returned by `encode_schema(&schema)`, not
-the message header, envelope, `SchemaLen`, or data block. This helper is
-only for convenience; the wire format still treats `SchemaId` as opaque,
-using the helper is only a local convention, and the digest does not
-authenticate a cache entry by itself.
+For deployments that want the draft's open-interoperability default
+`SchemaId` convention, use `recommended_schema_id_sha256(&schema)` and
+pass the resulting bare 32-byte digest as opaque `SchemaId` bytes. The
+hash input is the exact descriptor bytes returned by
+`encode_schema(&schema)`, not the message header, envelope,
+`SchemaLen`, or data block. This helper is only for convenience; the
+wire format still treats `SchemaId` as opaque, using the helper is only
+an identifier convention, and the digest does not authenticate a cache
+entry by itself.
 
-Deployments that do not want SHA-256 can skip the helper entirely: call
-`encode_schema(&schema)`, derive any local identifier from those schema
-descriptor bytes, and use the resulting opaque bytes as `SchemaId`.
-`recommended_schema_id_sha256` is the documented default convention, not
-an API requirement. Those local identifiers still need a documented
-scope and reset rule; once that context is lost or ambiguous,
-`SchemaRef` must fail instead of guessing.
+The documentation also defines an official compact profile named
+`xxh64-v1`: compute `xxHash64(seed=0)` over the same canonical schema
+descriptor bytes and encode the result as a fixed 8-byte big-endian
+`SchemaId`. That profile is meant for bounded registries, local caches,
+or constrained deployments where 8-byte identifiers matter more than
+open cross-deployment collision resistance. This crate re-exports
+`recommended_schema_id_xxh64_v1(&schema)` from `tpack-core` for that
+profile and provides `recommended_schema_id_sha256(&schema)` at the
+facade layer for the stronger digest.
+
+Deployments that do not want SHA-256 can skip the helper entirely and
+use `xxh64-v1`, another local convention, or a registry-issued
+identifier. `recommended_schema_id_sha256` remains the documented main
+default, not an API requirement. Those local or compact identifiers
+still need a documented scope, reset rule, and collision policy; once
+that context is lost, expired, or ambiguous, `SchemaRef` must fail
+instead of guessing.
 
 Current conformance boundary:
 

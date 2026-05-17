@@ -16,4 +16,4 @@ std = []
 path = "src/lib.rs"
 
 [dependencies]
-sha2 = { version = "0.10", default-features = false }
+xxhash-rust = { version = "0.8.15", default-features = false, features = ["xxh64"] }

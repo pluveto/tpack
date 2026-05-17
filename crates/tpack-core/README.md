@@ -17,29 +17,31 @@ embedded-schema mismatch instead of silently trusting the cached AST.
 so conflicting, stale, or out-of-scope bindings must be treated as a
 profile or registry error by the caller.
 
-## Recommended `SchemaId` Helper
+## Recommended `SchemaId` Helpers
 
-`recommended_schema_id_sha256(&Schema)` derives the draft's recommended
-`SchemaId` convention for uncoordinated deployments: SHA-256 over the
-exact bytes returned by `encode_schema(&schema)`.
+`recommended_schema_id_xxh64_v1(&Schema)` derives this crate's compact
+helper for bounded or performance-sensitive deployments:
+`xxHash64(seed=0)` over the exact bytes returned by
+`encode_schema(&schema)`, encoded as a fixed 8-byte big-endian output.
 
 That hash input excludes the header, envelope fields, `SchemaLen`, and
-data bytes. The helper returns the bare 32-byte digest; deployments that
-need a prefix or algorithm tag must add it outside the helper.
+data bytes. The higher-level `tpack` crate also exposes
+`recommended_schema_id_sha256(&Schema)` for deployments that want the
+stronger SHA-256 convention over the same canonical descriptor bytes.
 
-This is a helper, not a wire requirement. `SchemaId` remains opaque in
+These are helpers, not wire requirements. `SchemaId` remains opaque in
 the core format, and deployments may still use registry-issued or
-application-defined identifiers. Using the helper is still only a local
-convention, and it does not authenticate a registry binding or cached
+application-defined identifiers. Using either helper is still only a
+local convention, and neither authenticates a registry binding or cached
 schema reuse decision by itself.
 
-Low-end or performance-sensitive deployments do not need to use SHA-256.
-They can call `encode_schema(&schema)` directly, derive any local
-identifier from those descriptor bytes, and pass the resulting opaque
-bytes through `FullSchemaWithId` / `SchemaRef` and their registry. In
-that setup, the profile still needs an explicit scope, reset rule, and
-collision policy. Once the binding scope is lost or ambiguous,
-`SchemaRef` must be rejected.
+Open interoperability or long-lived shared registries should generally
+prefer the `tpack`-layer SHA-256 helper. Constrained profiles can use
+`recommended_schema_id_xxh64_v1` or derive another local identifier from
+`encode_schema(&schema)`. In every case, the profile still needs an
+explicit scope, reset rule, and collision policy. Once the binding scope
+is lost, expired, ambiguous, or conflicting, `SchemaRef` must be
+rejected.
 
 ## Value Model
 

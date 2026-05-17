@@ -2,7 +2,8 @@ use std::borrow::Cow;
 
 use tpack::{
     CanonicalMode, DecodeOptions, Decoder, EncodeOptions, EnvelopeMode, ErrorKind, Field, Schema,
-    TpackValue, TypeDescriptor, ValueMapEntry, Variant, encode_message,
+    TpackValue, TypeDescriptor, ValueMapEntry, Variant, encode_message, encode_schema,
+    recommended_schema_id_sha256, recommended_schema_id_xxh64_v1,
 };
 
 mod reference_cases {
@@ -73,6 +74,52 @@ mod reference_cases {
         decode_hex_bytes(include_str!(
             "../../../test-vectors/v1/reference/noncanonical-map-order/full-schema.hex"
         ))
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn schema_id_helpers_match_documented_profiles() {
+        let schema = flat_schema();
+
+        assert_eq!(
+            recommended_schema_id_xxh64_v1(&schema).unwrap(),
+            [0x23, 0x73, 0x76, 0xF7, 0x21, 0xB6, 0x0A, 0x41]
+        );
+        assert_eq!(
+            recommended_schema_id_sha256(&schema).unwrap(),
+            [
+                0x0C, 0x88, 0x7E, 0x5F, 0xBF, 0x1C, 0xC6, 0xDC, 0x1F, 0x9F, 0x94, 0x54, 0x87, 0xE9,
+                0xE9, 0xB7, 0x9E, 0x81, 0xBF, 0xFD, 0xBE, 0x2F, 0xCD, 0x73, 0x97, 0x86, 0xBC, 0x07,
+                0x0B, 0x89, 0xCB, 0x45,
+            ]
+        );
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn schema_id_helpers_depend_on_canonical_descriptor_bytes_only() {
+        let schema = flat_schema();
+        let xxh64 = recommended_schema_id_xxh64_v1(&schema).unwrap();
+        let sha256 = recommended_schema_id_sha256(&schema).unwrap();
+
+        let mut noncanonical_schema_bytes = encode_schema(&schema).unwrap();
+        assert_eq!(noncanonical_schema_bytes[0], 0x20);
+        assert_eq!(noncanonical_schema_bytes[1], 0x05);
+        noncanonical_schema_bytes[1] = 0x85;
+        noncanonical_schema_bytes.insert(2, 0x00);
+
+        let decoded_from_noncanonical = Decoder::new(&noncanonical_schema_bytes)
+            .decode_schema()
+            .expect("decode noncanonical schema bytes");
+        assert_eq!(decoded_from_noncanonical, schema);
+        assert_eq!(
+            recommended_schema_id_xxh64_v1(&decoded_from_noncanonical).unwrap(),
+            xxh64
+        );
+        assert_eq!(
+            recommended_schema_id_sha256(&decoded_from_noncanonical).unwrap(),
+            sha256
+        );
     }
 
     #[cfg(feature = "std")]

@@ -30,6 +30,19 @@ whitespace only. Blank lines are allowed.
 | Flat record, SchemaRef | `v1/draft-00/flat-record/schema-ref.hex` | `draft-zhang-tpack-format-00` Section 15.5 | Requires an external binding for `example.record.v1`; if the binding is missing, ambiguous, or out of profile scope, decode must fail |
 | Non-canonical map order | `v1/reference/noncanonical-map-order/full-schema.hex` | Repository regression vector | Strict canonical decode must fail with `NonCanonicalMapKeyOrder` |
 
+SchemaId-related vectors currently exercise the draft's string example
+and the default fail-closed cache behavior. The documentation now also
+defines two hash-based naming profiles for canonical schema descriptor
+bytes:
+
+- open interoperability default: SHA-256
+- official compact profile: `xxh64-v1` = `xxHash64(seed=0)`, fixed
+  8-byte big-endian output
+
+Neither profile authenticates a binding by itself. Compact-profile
+deployments still need an explicit scope and must reject `SchemaRef`
+when the binding context is missing, expired, ambiguous, or conflicting.
+
 ## Quick Checks
 
 ```bash

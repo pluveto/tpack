@@ -498,6 +498,15 @@ informative:
    deployment.  TPACK core does not verify that SchemaId and Schema
    bytes match.
 
+   Within one cache namespace, registry authority, or other
+   profile-defined binding context, a SchemaId MUST resolve to at most
+   one schema.  If an implementation learns, observes, or is configured
+   with multiple different schemas for the same SchemaId in that scope,
+   it MUST treat that condition as a collision or configuration error.
+   It MUST NOT silently overwrite one binding with another, choose a
+   binding nondeterministically, or continue decoding SchemaRef against
+   an ambiguous binding.
+
 ### Recommended Convention for Uncoordinated Deployments
 
    TPACK core keeps SchemaId opaque.  However, independent
@@ -518,6 +527,24 @@ informative:
    collision-resistant hash by prior agreement, and MAY prepend an
    application-specific prefix or algorithm identifier if they need
    domain separation.
+
+   Some deployments, including resource-constrained devices, may choose
+   not to compute SHA-256 on device.  Such deployments MAY use
+   registry-issued identifiers, stream-local or connection-local
+   identifiers, locally assigned names, or another profile-specific
+   convention.  They MAY also use a simpler or faster hash by prior
+   agreement when the resulting SchemaId is only a local name.
+
+   A profile that uses local assignment or a non-collision-resistant
+   hash MUST define the identifier scope, the assignment authority,
+   whether identifiers may be reused, and how bindings are reset after
+   reboot, reconnect, firmware change, or other context loss.  In these
+   profiles, SchemaId does not authenticate a schema, does not make
+   collisions negligible, and is not suitable as the sole basis for
+   sharing schema bindings across unrelated trust domains or long-lived
+   persistent caches.  Receivers MUST reject SchemaRef when the required
+   binding context is absent, expired, ambiguous, or established under a
+   different scope.
 
    This convention is informative only.  It does not change the core
    wire format, does not make SchemaId a hash by definition, and does
@@ -540,6 +567,12 @@ informative:
    schema before the message is accepted.  Such a policy is compatible
    with this specification and can reduce cache-confusion risk.
 
+   If a decoder validates the embedded TypeDescriptor against an
+   existing binding and they differ, it MUST reject the message and
+   treat the condition as a collision or configuration error in the
+   active binding context.  A decoder MUST NOT silently replace the
+   existing binding with the schema carried by that message.
+
    Even when SchemaId values follow the recommended hash convention,
    that convention alone does not authenticate a cache namespace or
    registry binding.
@@ -547,7 +580,10 @@ informative:
    If a FullSchemaWithId cache lookup misses, the decoder MUST read and
    validate the SchemaLen-delimited TypeDescriptor.  If validation
    succeeds, the implementation MAY add the SchemaId-to-schema binding
-   to a local cache according to application policy.
+   to a local cache according to application policy.  If the
+   implementation already knows that the same SchemaId is conflicting or
+   ambiguous in the active context, it MUST fail instead of creating or
+   replacing a binding implicitly.
 
    For FullSchema, a decoder can use SchemaLen to locate the Data Block
    after validating the TypeDescriptor.  Without a SchemaId, a decoder
@@ -555,13 +591,18 @@ informative:
    protocol defines equivalent binding semantics.
 
    For SchemaRef, a cache miss is fatal.  A decoder MUST NOT parse the
-   Data Block without an established schema binding.
+   Data Block without an established schema binding.  A decoder MUST
+   also reject SchemaRef if the active profile marks the binding
+   ambiguous, conflicting, expired, or out of scope for the current
+   context.
 
    Implementations SHOULD expose errors corresponding to the following
    conditions where applicable:
 
       UNKNOWN_SCHEMA_ID
       INVALID_SCHEMA_ID
+      SCHEMA_ID_CONFLICT
+      EMBEDDED_SCHEMA_MISMATCH
       SCHEMA_REF_NOT_ALLOWED
       SCHEMA_LENGTH_EXCEEDED
       SCHEMA_LENGTH_MISMATCH
@@ -1344,9 +1385,17 @@ informative:
 
    *  Unknown SchemaId behavior.
 
+   *  SchemaId namespace scope and assignment authority.
+
+   *  Collision handling, including whether conflicting bindings are a
+      fatal configuration error.
+
    *  Whether schemas may be reused across connections.
 
    *  Whether authentication is required.
+
+   *  Whether locally assigned or profile-local identifiers may be
+      reused after reboot, reconnect, or firmware update.
 
    *  Whether SchemaRef is allowed before a schema has been established
       in the current context.
@@ -1663,6 +1712,21 @@ informative:
    collision-resistant hash such as SHA-256 and SHOULD scope any local
    cache or registry to the correct tenant, authority, stream, or trust
    domain.
+
+   Deployments that intentionally use a simpler or faster hash, or a
+   locally assigned SchemaId, for constrained devices MUST scope that
+   convention to a closed profile such as a single authenticated
+   connection, stream, boot session, or authoritative registry.  Such
+   identifiers MUST NOT be treated as portable proof that two different
+   deployments, caches, or administrative domains mean the same schema.
+   SchemaRef MUST be rejected once that profile-specific binding context
+   is lost, expired, or ambiguous.
+
+   If two different schemas are observed for the same SchemaId within
+   one binding context, the receiver MUST treat that as a collision or
+   configuration error.  SchemaRef cannot be decoded safely in that
+   state, and FullSchemaWithId MUST NOT silently overwrite the existing
+   binding.
 
    A malicious sender can use a known SchemaId with data encoded for a
    different schema if the application accepts unauthenticated bindings

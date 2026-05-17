@@ -10,6 +10,13 @@ This crate is designed for `#![no_std]` with `alloc`. It owns the wire codec, sc
 
 When `FullSchemaWithId` hits a schema registry entry, the decoder reuses the cached schema AST. By default it still reparses the embedded schema bytes and requires them to match the cached schema before the cached AST is accepted. Disable that comparison only when the schema-id namespace and registry binding are already authenticated or otherwise trusted for the deployment.
 
+If a deployment ever binds the same `SchemaId` bytes to a different
+schema locally, default `FullSchemaWithId` cache hits fail closed with an
+embedded-schema mismatch instead of silently trusting the cached AST.
+`SchemaRef` cannot do that because it carries no embedded schema bytes,
+so conflicting, stale, or out-of-scope bindings must be treated as a
+profile or registry error by the caller.
+
 ## Recommended `SchemaId` Helper
 
 `recommended_schema_id_sha256(&Schema)` derives the draft's recommended
@@ -25,6 +32,14 @@ the core format, and deployments may still use registry-issued or
 application-defined identifiers. Using the helper is still only a local
 convention, and it does not authenticate a registry binding or cached
 schema reuse decision by itself.
+
+Low-end or performance-sensitive deployments do not need to use SHA-256.
+They can call `encode_schema(&schema)` directly, derive any local
+identifier from those descriptor bytes, and pass the resulting opaque
+bytes through `FullSchemaWithId` / `SchemaRef` and their registry. In
+that setup, the profile still needs an explicit scope, reset rule, and
+collision policy. Once the binding scope is lost or ambiguous,
+`SchemaRef` must be rejected.
 
 ## Value Model
 

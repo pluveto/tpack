@@ -106,7 +106,9 @@ mod reference_cases {
         );
 
         let registry = tpack::StdSchemaRegistry::new();
-        registry.insert(b"example.record.v1", schema.clone());
+        registry
+            .insert(b"example.record.v1", schema.clone())
+            .unwrap();
 
         let with_id_bytes = draft_flat_with_id_hex();
         let mut decoder = Decoder::new(&with_id_bytes);
@@ -770,7 +772,7 @@ mod reference_cases {
         .unwrap();
 
         let registry = tpack::StdSchemaRegistry::new();
-        registry.insert(b"example.payload.v1", schema);
+        registry.insert(b"example.payload.v1", schema).unwrap();
 
         let decoded: Payload = tpack::serde_support::Deserializer::new()
             .registry(&registry)

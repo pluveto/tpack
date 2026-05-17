@@ -26,8 +26,8 @@ whitespace only. Blank lines are allowed.
 | Vector | Path | Source | Expected result |
 | --- | --- | --- | --- |
 | Flat record, FullSchema | `v1/draft-00/flat-record/full-schema.hex` | `draft-zhang-tpack-format-00` Section 15.1 | Decodes successfully as a self-contained message |
-| Flat record, FullSchemaWithId | `v1/draft-00/flat-record/full-schema-with-id.hex` | `draft-zhang-tpack-format-00` Section 15.4 | Decodes successfully without a registry; on a registry hit the reference implementation only reuses the cached schema after the embedded descriptor matches |
-| Flat record, SchemaRef | `v1/draft-00/flat-record/schema-ref.hex` | `draft-zhang-tpack-format-00` Section 15.5 | Requires an external binding for `example.record.v1`; otherwise decode must fail |
+| Flat record, FullSchemaWithId | `v1/draft-00/flat-record/full-schema-with-id.hex` | `draft-zhang-tpack-format-00` Section 15.4 | Decodes successfully without a registry; on a registry hit the reference implementation only reuses the cached schema after the embedded descriptor matches, otherwise decode fails |
+| Flat record, SchemaRef | `v1/draft-00/flat-record/schema-ref.hex` | `draft-zhang-tpack-format-00` Section 15.5 | Requires an external binding for `example.record.v1`; if the binding is missing, ambiguous, or out of profile scope, decode must fail |
 | Non-canonical map order | `v1/reference/noncanonical-map-order/full-schema.hex` | Repository regression vector | Strict canonical decode must fail with `NonCanonicalMapKeyOrder` |
 
 ## Quick Checks

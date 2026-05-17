@@ -74,38 +74,38 @@ Table of Contents
                Deployments . . . . . . . . . . . . . . . . . . . . .  11
      6.5.  Schema Skipping . . . . . . . . . . . . . . . . . . . . .  12
      6.6.  Unsigned Variable-Length Integer  . . . . . . . . . . . .  13
-     6.7.  Signed Variable-Length Integer  . . . . . . . . . . . . .  13
-     6.8.  Text String Component . . . . . . . . . . . . . . . . . .  13
+     6.7.  Signed Variable-Length Integer  . . . . . . . . . . . . .  14
+     6.8.  Text String Component . . . . . . . . . . . . . . . . . .  14
      6.9.  Byte String Component . . . . . . . . . . . . . . . . . .  14
-   7.  Schema Block  . . . . . . . . . . . . . . . . . . . . . . . .  14
-     7.1.  Type Descriptor Encoding  . . . . . . . . . . . . . . . .  14
-     7.2.  Type Tag Registry . . . . . . . . . . . . . . . . . . . .  14
-     7.3.  Primitive Type Descriptors  . . . . . . . . . . . . . . .  16
-     7.4.  Parameterized Type Descriptors  . . . . . . . . . . . . .  16
-       7.4.1.  Decimal(P,S)  . . . . . . . . . . . . . . . . . . . .  16
-       7.4.2.  String(N) . . . . . . . . . . . . . . . . . . . . . .  16
-       7.4.3.  Bytes(N)  . . . . . . . . . . . . . . . . . . . . . .  16
-       7.4.4.  Timestamp(P)  . . . . . . . . . . . . . . . . . . . .  17
-     7.5.  Structural Type Descriptors . . . . . . . . . . . . . . .  17
-       7.5.1.  Struct  . . . . . . . . . . . . . . . . . . . . . . .  17
-       7.5.2.  List  . . . . . . . . . . . . . . . . . . . . . . . .  18
-       7.5.3.  Map . . . . . . . . . . . . . . . . . . . . . . . . .  18
-       7.5.4.  Union . . . . . . . . . . . . . . . . . . . . . . . .  19
-       7.5.5.  Enum  . . . . . . . . . . . . . . . . . . . . . . . .  19
-       7.5.6.  Optional  . . . . . . . . . . . . . . . . . . . . . .  19
-     7.6.  Extension Type Descriptor . . . . . . . . . . . . . . . .  20
-   8.  Data Block  . . . . . . . . . . . . . . . . . . . . . . . . .  20
-     8.1.  General Rule  . . . . . . . . . . . . . . . . . . . . . .  20
-     8.2.  Primitive Values  . . . . . . . . . . . . . . . . . . . .  20
-     8.3.  Decimal Values  . . . . . . . . . . . . . . . . . . . . .  21
-     8.4.  Text and Byte Values  . . . . . . . . . . . . . . . . . .  22
-     8.5.  Temporal Values . . . . . . . . . . . . . . . . . . . . .  22
-     8.6.  Big Integer Values  . . . . . . . . . . . . . . . . . . .  23
-     8.7.  Structural Values . . . . . . . . . . . . . . . . . . . .  23
-       8.7.1.  Struct Values . . . . . . . . . . . . . . . . . . . .  23
-       8.7.2.  List Values . . . . . . . . . . . . . . . . . . . . .  24
-       8.7.3.  Map Values  . . . . . . . . . . . . . . . . . . . . .  24
-       8.7.4.  Union Values  . . . . . . . . . . . . . . . . . . . .  24
+   7.  Schema Block  . . . . . . . . . . . . . . . . . . . . . . . .  15
+     7.1.  Type Descriptor Encoding  . . . . . . . . . . . . . . . .  15
+     7.2.  Type Tag Registry . . . . . . . . . . . . . . . . . . . .  15
+     7.3.  Primitive Type Descriptors  . . . . . . . . . . . . . . .  17
+     7.4.  Parameterized Type Descriptors  . . . . . . . . . . . . .  17
+       7.4.1.  Decimal(P,S)  . . . . . . . . . . . . . . . . . . . .  17
+       7.4.2.  String(N) . . . . . . . . . . . . . . . . . . . . . .  17
+       7.4.3.  Bytes(N)  . . . . . . . . . . . . . . . . . . . . . .  17
+       7.4.4.  Timestamp(P)  . . . . . . . . . . . . . . . . . . . .  18
+     7.5.  Structural Type Descriptors . . . . . . . . . . . . . . .  18
+       7.5.1.  Struct  . . . . . . . . . . . . . . . . . . . . . . .  18
+       7.5.2.  List  . . . . . . . . . . . . . . . . . . . . . . . .  19
+       7.5.3.  Map . . . . . . . . . . . . . . . . . . . . . . . . .  19
+       7.5.4.  Union . . . . . . . . . . . . . . . . . . . . . . . .  20
+       7.5.5.  Enum  . . . . . . . . . . . . . . . . . . . . . . . .  20
+       7.5.6.  Optional  . . . . . . . . . . . . . . . . . . . . . .  20
+     7.6.  Extension Type Descriptor . . . . . . . . . . . . . . . .  21
+   8.  Data Block  . . . . . . . . . . . . . . . . . . . . . . . . .  21
+     8.1.  General Rule  . . . . . . . . . . . . . . . . . . . . . .  21
+     8.2.  Primitive Values  . . . . . . . . . . . . . . . . . . . .  21
+     8.3.  Decimal Values  . . . . . . . . . . . . . . . . . . . . .  22
+     8.4.  Text and Byte Values  . . . . . . . . . . . . . . . . . .  23
+     8.5.  Temporal Values . . . . . . . . . . . . . . . . . . . . .  23
+     8.6.  Big Integer Values  . . . . . . . . . . . . . . . . . . .  24
+     8.7.  Structural Values . . . . . . . . . . . . . . . . . . . .  24
+       8.7.1.  Struct Values . . . . . . . . . . . . . . . . . . . .  24
+       8.7.2.  List Values . . . . . . . . . . . . . . . . . . . . .  25
+       8.7.3.  Map Values  . . . . . . . . . . . . . . . . . . . . .  25
+       8.7.4.  Union Values  . . . . . . . . . . . . . . . . . . . .  25
 
 
 
@@ -114,29 +114,29 @@ Zhang                   Expires 17 November 2026                [Page 2]
 Internet-Draft                    TPACK                         May 2026
 
 
-       8.7.5.  Enum Values . . . . . . . . . . . . . . . . . . . . .  25
-       8.7.6.  Optional Values . . . . . . . . . . . . . . . . . . .  25
-   9.  Validation Rules  . . . . . . . . . . . . . . . . . . . . . .  25
-   10. Canonical Encoding  . . . . . . . . . . . . . . . . . . . . .  26
-   11. Schema Evolution and Unknown Data . . . . . . . . . . . . . .  27
-   12. Cached Schema Profile and Framing . . . . . . . . . . . . . .  28
-   13. Implementation Status and Conformance Boundary  . . . . . . .  29
-   14. Test Vectors  . . . . . . . . . . . . . . . . . . . . . . . .  30
-   15. Examples  . . . . . . . . . . . . . . . . . . . . . . . . . .  31
-     15.1.  Flat Record with Decimal Values  . . . . . . . . . . . .  31
-     15.2.  Nested Structure . . . . . . . . . . . . . . . . . . . .  32
-     15.3.  Union Value  . . . . . . . . . . . . . . . . . . . . . .  33
-     15.4.  FullSchemaWithId Envelope  . . . . . . . . . . . . . . .  33
-     15.5.  SchemaRef Envelope . . . . . . . . . . . . . . . . . . .  34
-   16. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  34
-   17. Security Considerations . . . . . . . . . . . . . . . . . . .  35
-   18. References  . . . . . . . . . . . . . . . . . . . . . . . . .  36
-     18.1.  Normative References . . . . . . . . . . . . . . . . . .  36
-     18.2.  Informative References . . . . . . . . . . . . . . . . .  36
-   Appendix A.  Rationale  . . . . . . . . . . . . . . . . . . . . .  37
-   Appendix B.  Implementation Notes . . . . . . . . . . . . . . . .  38
-   Appendix C.  Acknowledgements . . . . . . . . . . . . . . . . . .  38
-   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  38
+       8.7.5.  Enum Values . . . . . . . . . . . . . . . . . . . . .  26
+       8.7.6.  Optional Values . . . . . . . . . . . . . . . . . . .  26
+   9.  Validation Rules  . . . . . . . . . . . . . . . . . . . . . .  26
+   10. Canonical Encoding  . . . . . . . . . . . . . . . . . . . . .  27
+   11. Schema Evolution and Unknown Data . . . . . . . . . . . . . .  28
+   12. Cached Schema Profile and Framing . . . . . . . . . . . . . .  29
+   13. Implementation Status and Conformance Boundary  . . . . . . .  30
+   14. Test Vectors  . . . . . . . . . . . . . . . . . . . . . . . .  32
+   15. Examples  . . . . . . . . . . . . . . . . . . . . . . . . . .  32
+     15.1.  Flat Record with Decimal Values  . . . . . . . . . . . .  32
+     15.2.  Nested Structure . . . . . . . . . . . . . . . . . . . .  33
+     15.3.  Union Value  . . . . . . . . . . . . . . . . . . . . . .  34
+     15.4.  FullSchemaWithId Envelope  . . . . . . . . . . . . . . .  34
+     15.5.  SchemaRef Envelope . . . . . . . . . . . . . . . . . . .  35
+   16. IANA Considerations . . . . . . . . . . . . . . . . . . . . .  35
+   17. Security Considerations . . . . . . . . . . . . . . . . . . .  36
+   18. References  . . . . . . . . . . . . . . . . . . . . . . . . .  37
+     18.1.  Normative References . . . . . . . . . . . . . . . . . .  37
+     18.2.  Informative References . . . . . . . . . . . . . . . . .  38
+   Appendix A.  Rationale  . . . . . . . . . . . . . . . . . . . . .  38
+   Appendix B.  Implementation Notes . . . . . . . . . . . . . . . .  39
+   Appendix C.  Acknowledgements . . . . . . . . . . . . . . . . . .  40
+   Author's Address  . . . . . . . . . . . . . . . . . . . . . . . .  40
 
 1.  Introduction
 
@@ -588,6 +588,15 @@ Internet-Draft                    TPACK                         May 2026
    deployment.  TPACK core does not verify that SchemaId and Schema
    bytes match.
 
+   Within one cache namespace, registry authority, or other profile-
+   defined binding context, a SchemaId MUST resolve to at most one
+   schema.  If an implementation learns, observes, or is configured with
+   multiple different schemas for the same SchemaId in that scope, it
+   MUST treat that condition as a collision or configuration error.  It
+   MUST NOT silently overwrite one binding with another, choose a
+   binding nondeterministically, or continue decoding SchemaRef against
+   an ambiguous binding.
+
 6.4.1.  Recommended Convention for Uncoordinated Deployments
 
    TPACK core keeps SchemaId opaque.  However, independent
@@ -600,6 +609,15 @@ Internet-Draft                    TPACK                         May 2026
    input SHOULD be exactly the validated on-wire TypeDescriptor encoded
    with shortest UVarInt forms and zero field flags.
 
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 11]
+
+Internet-Draft                    TPACK                         May 2026
+
+
    Hashing an entire FullSchema or FullSchemaWithId message does not
    follow this convention.
 
@@ -609,14 +627,23 @@ Internet-Draft                    TPACK                         May 2026
    specific prefix or algorithm identifier if they need domain
    separation.
 
+   Some deployments, including resource-constrained devices, may choose
+   not to compute SHA-256 on device.  Such deployments MAY use registry-
+   issued identifiers, stream-local or connection-local identifiers,
+   locally assigned names, or another profile-specific convention.  They
+   MAY also use a simpler or faster hash by prior agreement when the
+   resulting SchemaId is only a local name.
 
-
-
-
-Zhang                   Expires 17 November 2026               [Page 11]
-
-Internet-Draft                    TPACK                         May 2026
-
+   A profile that uses local assignment or a non-collision-resistant
+   hash MUST define the identifier scope, the assignment authority,
+   whether identifiers may be reused, and how bindings are reset after
+   reboot, reconnect, firmware change, or other context loss.  In these
+   profiles, SchemaId does not authenticate a schema, does not make
+   collisions negligible, and is not suitable as the sole basis for
+   sharing schema bindings across unrelated trust domains or long-lived
+   persistent caches.  Receivers MUST reject SchemaRef when the required
+   binding context is absent, expired, ambiguous, or established under a
+   different scope.
 
    This convention is informative only.  It does not change the core
    wire format, does not make SchemaId a hash by definition, and does
@@ -639,33 +666,6 @@ Internet-Draft                    TPACK                         May 2026
    schema before the message is accepted.  Such a policy is compatible
    with this specification and can reduce cache-confusion risk.
 
-   Even when SchemaId values follow the recommended hash convention,
-   that convention alone does not authenticate a cache namespace or
-   registry binding.
-
-   If a FullSchemaWithId cache lookup misses, the decoder MUST read and
-   validate the SchemaLen-delimited TypeDescriptor.  If validation
-   succeeds, the implementation MAY add the SchemaId-to-schema binding
-   to a local cache according to application policy.
-
-   For FullSchema, a decoder can use SchemaLen to locate the Data Block
-   after validating the TypeDescriptor.  Without a SchemaId, a decoder
-   cannot safely substitute an external schema unless an enclosing
-   protocol defines equivalent binding semantics.
-
-   For SchemaRef, a cache miss is fatal.  A decoder MUST NOT parse the
-   Data Block without an established schema binding.
-
-   Implementations SHOULD expose errors corresponding to the following
-   conditions where applicable:
-
-     UNKNOWN_SCHEMA_ID
-     INVALID_SCHEMA_ID
-     SCHEMA_REF_NOT_ALLOWED
-     SCHEMA_LENGTH_EXCEEDED
-     SCHEMA_LENGTH_MISMATCH
-
-
 
 
 
@@ -673,6 +673,46 @@ Zhang                   Expires 17 November 2026               [Page 12]
 
 Internet-Draft                    TPACK                         May 2026
 
+
+   If a decoder validates the embedded TypeDescriptor against an
+   existing binding and they differ, it MUST reject the message and
+   treat the condition as a collision or configuration error in the
+   active binding context.  A decoder MUST NOT silently replace the
+   existing binding with the schema carried by that message.
+
+   Even when SchemaId values follow the recommended hash convention,
+   that convention alone does not authenticate a cache namespace or
+   registry binding.
+
+   If a FullSchemaWithId cache lookup misses, the decoder MUST read and
+   validate the SchemaLen-delimited TypeDescriptor.  If validation
+   succeeds, the implementation MAY add the SchemaId-to-schema binding
+   to a local cache according to application policy.  If the
+   implementation already knows that the same SchemaId is conflicting or
+   ambiguous in the active context, it MUST fail instead of creating or
+   replacing a binding implicitly.
+
+   For FullSchema, a decoder can use SchemaLen to locate the Data Block
+   after validating the TypeDescriptor.  Without a SchemaId, a decoder
+   cannot safely substitute an external schema unless an enclosing
+   protocol defines equivalent binding semantics.
+
+   For SchemaRef, a cache miss is fatal.  A decoder MUST NOT parse the
+   Data Block without an established schema binding.  A decoder MUST
+   also reject SchemaRef if the active profile marks the binding
+   ambiguous, conflicting, expired, or out of scope for the current
+   context.
+
+   Implementations SHOULD expose errors corresponding to the following
+   conditions where applicable:
+
+     UNKNOWN_SCHEMA_ID
+     INVALID_SCHEMA_ID
+     SCHEMA_ID_CONFLICT
+     EMBEDDED_SCHEMA_MISMATCH
+     SCHEMA_REF_NOT_ALLOWED
+     SCHEMA_LENGTH_EXCEEDED
+     SCHEMA_LENGTH_MISMATCH
 
 6.6.  Unsigned Variable-Length Integer
 
@@ -682,6 +722,13 @@ Internet-Draft                    TPACK                         May 2026
    Each octet contributes seven payload bits.  The most significant bit
    is the continuation bit.  If the continuation bit is 1, another octet
    follows.  If it is 0, the integer ends.
+
+
+
+Zhang                   Expires 17 November 2026               [Page 13]
+
+Internet-Draft                    TPACK                         May 2026
+
 
    The numeric value is:
 
@@ -722,14 +769,6 @@ Internet-Draft                    TPACK                         May 2026
    visible characters.  Decoders MUST validate UTF-8 according to
    [RFC3629].
 
-
-
-
-Zhang                   Expires 17 November 2026               [Page 13]
-
-Internet-Draft                    TPACK                         May 2026
-
-
 6.9.  Byte String Component
 
    A byte string component is encoded as:
@@ -738,6 +777,14 @@ Internet-Draft                    TPACK                         May 2026
      Content : Length octets
 
    Byte string content is uninterpreted by this specification.
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 14]
+
+Internet-Draft                    TPACK                         May 2026
+
 
 7.  Schema Block
 
@@ -781,7 +828,16 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 14]
+
+
+
+
+
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 15]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -837,7 +893,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 15]
+Zhang                   Expires 17 November 2026               [Page 16]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -893,7 +949,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 16]
+Zhang                   Expires 17 November 2026               [Page 17]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -949,7 +1005,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 17]
+Zhang                   Expires 17 November 2026               [Page 18]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1005,7 +1061,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 18]
+Zhang                   Expires 17 November 2026               [Page 19]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1061,7 +1117,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 19]
+Zhang                   Expires 17 November 2026               [Page 20]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1117,7 +1173,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 20]
+Zhang                   Expires 17 November 2026               [Page 21]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1173,7 +1229,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 21]
+Zhang                   Expires 17 November 2026               [Page 22]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1229,7 +1285,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 22]
+Zhang                   Expires 17 November 2026               [Page 23]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1285,7 +1341,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 23]
+Zhang                   Expires 17 November 2026               [Page 24]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1341,7 +1397,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 24]
+Zhang                   Expires 17 November 2026               [Page 25]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1397,7 +1453,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 25]
+Zhang                   Expires 17 November 2026               [Page 26]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1453,7 +1509,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 26]
+Zhang                   Expires 17 November 2026               [Page 27]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1509,7 +1565,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 27]
+Zhang                   Expires 17 November 2026               [Page 28]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1565,7 +1621,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 28]
+Zhang                   Expires 17 November 2026               [Page 29]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1585,9 +1641,17 @@ Internet-Draft                    TPACK                         May 2026
 
    *  Unknown SchemaId behavior.
 
+   *  SchemaId namespace scope and assignment authority.
+
+   *  Collision handling, including whether conflicting bindings are a
+      fatal configuration error.
+
    *  Whether schemas may be reused across connections.
 
    *  Whether authentication is required.
+
+   *  Whether locally assigned or profile-local identifiers may be
+      reused after reboot, reconnect, or firmware update.
 
    *  Whether SchemaRef is allowed before a schema has been established
       in the current context.
@@ -1609,6 +1673,15 @@ Internet-Draft                    TPACK                         May 2026
    *  The three envelope modes FullSchema, FullSchemaWithId, and
       SchemaRef.
 
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 30]
+
+Internet-Draft                    TPACK                         May 2026
+
+
    *  Schema validation for duplicate field identifiers and names,
       duplicate enum symbols, duplicate union variant names, reserved
       field flags, type-parameter checks, and configured resource
@@ -1617,14 +1690,6 @@ Internet-Draft                    TPACK                         May 2026
    *  Canonical-mode checks for shortest varints, canonical NaN
       encodings, canonical Map key ordering, and duplicate Map keys
       using canonical encoded key bytes.
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 29]
-
-Internet-Draft                    TPACK                         May 2026
-
 
    *  Validation of the hexadecimal examples in this document through
       executable tests in crates/tpack/tests/reference.rs.
@@ -1661,6 +1726,18 @@ Internet-Draft                    TPACK                         May 2026
    any wire-format change; a future implementation can support larger
    magnitudes while remaining wire compatible.
 
+
+
+
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 31]
+
+Internet-Draft                    TPACK                         May 2026
+
+
    Reviewers should therefore treat the Rust codebase as strong evidence
    for the envelope layout, schema encoding, validation rules,
    canonicalization behavior, and cached-schema semantics, but not yet
@@ -1673,14 +1750,6 @@ Internet-Draft                    TPACK                         May 2026
    executable test vectors, not merely illustrative prose.
 
    The accompanying Rust test suite verifies at least the following:
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 30]
-
-Internet-Draft                    TPACK                         May 2026
-
 
    *  The FullSchema, FullSchemaWithId, and SchemaRef encodings in the
       Examples section.
@@ -1713,6 +1782,18 @@ Internet-Draft                    TPACK                         May 2026
 
    with the following value:
 
+
+
+
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 32]
+
+Internet-Draft                    TPACK                         May 2026
+
+
      {
        id:    "prod_001",
        price: 299.9900,
@@ -1726,17 +1807,6 @@ Internet-Draft                    TPACK                         May 2026
    carries its own scale 3 and coefficient 13725.
 
    Hexadecimal encoding:
-
-
-
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 31]
-
-Internet-Draft                    TPACK                         May 2026
-
 
      54 50 41 4B 01
 
@@ -1773,6 +1843,13 @@ Internet-Draft                    TPACK                         May 2026
        }
      }
 
+
+
+Zhang                   Expires 17 November 2026               [Page 33]
+
+Internet-Draft                    TPACK                         May 2026
+
+
    Its schema descriptor is:
 
      20 02
@@ -1786,13 +1863,6 @@ Internet-Draft                    TPACK                         May 2026
    The nested Struct is encoded recursively inside the schema.  In the
    data block, the nested Struct value is encoded as the concatenation
    of city, street, and zip values.  It does not repeat field names.
-
-
-
-Zhang                   Expires 17 November 2026               [Page 32]
-
-Internet-Draft                    TPACK                         May 2026
-
 
 15.3.  Union Value
 
@@ -1831,21 +1901,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 33]
+Zhang                   Expires 17 November 2026               [Page 34]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1901,7 +1957,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 34]
+Zhang                   Expires 17 November 2026               [Page 35]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1957,7 +2013,7 @@ Internet-Draft                    TPACK                         May 2026
 
 
 
-Zhang                   Expires 17 November 2026               [Page 35]
+Zhang                   Expires 17 November 2026               [Page 36]
 
 Internet-Draft                    TPACK                         May 2026
 
@@ -1977,6 +2033,21 @@ Internet-Draft                    TPACK                         May 2026
    cache or registry to the correct tenant, authority, stream, or trust
    domain.
 
+   Deployments that intentionally use a simpler or faster hash, or a
+   locally assigned SchemaId, for constrained devices MUST scope that
+   convention to a closed profile such as a single authenticated
+   connection, stream, boot session, or authoritative registry.  Such
+   identifiers MUST NOT be treated as portable proof that two different
+   deployments, caches, or administrative domains mean the same schema.
+   SchemaRef MUST be rejected once that profile-specific binding context
+   is lost, expired, or ambiguous.
+
+   If two different schemas are observed for the same SchemaId within
+   one binding context, the receiver MUST treat that as a collision or
+   configuration error.  SchemaRef cannot be decoded safely in that
+   state, and FullSchemaWithId MUST NOT silently overwrite the existing
+   binding.
+
    A malicious sender can use a known SchemaId with data encoded for a
    different schema if the application accepts unauthenticated bindings
    or confuses cache namespaces.  Cached schema profiles SHOULD scope
@@ -1992,6 +2063,17 @@ Internet-Draft                    TPACK                         May 2026
 
 18.1.  Normative References
 
+
+
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 37]
+
+Internet-Draft                    TPACK                         May 2026
+
+
    [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
               Requirement Levels", BCP 14, RFC 2119,
               DOI 10.17487/RFC2119, March 1997,
@@ -2006,17 +2088,6 @@ Internet-Draft                    TPACK                         May 2026
               May 2017, <https://www.rfc-editor.org/info/rfc8174>.
 
 18.2.  Informative References
-
-
-
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 36]
-
-Internet-Draft                    TPACK                         May 2026
-
 
    [RFC8610]  Bormann, C. and P. Hoffman, "Concise Data Definition
               Language (CDDL): A Notational Convention to Express
@@ -2047,6 +2118,18 @@ Appendix A.  Rationale
    TPACK therefore keeps self-contained messages as the default and adds
    SchemaRef only as an explicit cached schema profile.
 
+
+
+
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 38]
+
+Internet-Draft                    TPACK                         May 2026
+
+
    SchemaId is opaque because different deployments need different
    identity, discovery, and trust models.  Some applications may use a
    content hash, while others may use a registry key, stream-local
@@ -2065,14 +2148,6 @@ Appendix A.  Rationale
    as a separate type for applications that need epoch-based instants.
    Duration and CalendarInterval are separate because elapsed physical
    time and calendar arithmetic have different semantics.
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 37]
-
-Internet-Draft                    TPACK                         May 2026
-
 
    Struct FieldId preserves stable semantic binding while the data block
    remains compact and positional.  Field names remain useful for human
@@ -2103,6 +2178,14 @@ Appendix B.  Implementation Notes
    intermediate representation, code generation ABI, cache-key
    algorithm, or CPU-architecture-specific behavior.
 
+
+
+
+Zhang                   Expires 17 November 2026               [Page 39]
+
+Internet-Draft                    TPACK                         May 2026
+
+
 Appendix C.  Acknowledgements
 
    This draft was derived from design discussions about self-contained
@@ -2125,4 +2208,33 @@ Author's Address
 
 
 
-Zhang                   Expires 17 November 2026               [Page 38]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 40]

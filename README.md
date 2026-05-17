@@ -33,13 +33,15 @@ Envelope modes:
 - `0x01` `FullSchemaWithId`: `SchemaIdLen + SchemaId + SchemaLen + Schema + Data`
 - `0x02` `SchemaRef`: `SchemaIdLen + SchemaId + Data`
 
-`FullSchemaWithId` reuses the cached schema AST when the schema ID is already in the registry. The decoder validates the embedded schema bytes against the cached schema by default; only deployments that already trust the schema-id namespace and registry binding should disable that check through `DecodeOptions::validate_embedded_schema_on_cache_hit`. The recommended SHA-256 helper below standardizes identifiers, but it does not authenticate a cache entry by itself.
+`FullSchemaWithId` reuses the cached schema AST when the schema ID is already in the registry. The decoder validates the embedded schema bytes against the cached schema by default; only deployments that already trust the schema-id namespace and registry binding should disable that check through `DecodeOptions::validate_embedded_schema_on_cache_hit`. If the embedded schema and cached binding differ, that is a schema-id collision or configuration error for that registry scope and the message must be rejected. The recommended SHA-256 helper below standardizes identifiers, but it does not authenticate a cache entry by itself.
 
-`SchemaRef` requires an active registry entry.
+`SchemaRef` requires an active registry entry. It must also be rejected when the binding is ambiguous, expired, or out of scope for the active cached-schema profile.
 
 The format name is `TPACK`, while the v1 wire magic is the fixed 4-byte marker `TPAK`. This repository keeps that marker intentionally for the current draft line so the draft text, examples, tests, and implementation stay wire-compatible. The project does not currently rename the magic just to align spelling.
 
 `SchemaId` remains opaque in the core format. For uncoordinated deployments that do not already have a registry convention, the recommended profile is to hash the exact bytes returned by `encode_schema(&schema)` and use that bare digest as the `SchemaId`. That hash input excludes the header, envelope fields, `SchemaLen`, and data bytes. This is a recommendation for interoperability, not a core wire requirement.
+
+For constrained deployments that do not want SHA-256 on device, the format still permits registry-issued IDs, connection-local IDs, boot-session-local IDs, or other profile-defined names. A simpler or faster hash is only a local naming convention in those profiles, not proof of schema identity across deployments, and such profiles need an explicit scope and reset rule. Once that scope is lost or ambiguous, `SchemaRef` must fail instead of guessing.
 
 ## What The Core Guarantees
 

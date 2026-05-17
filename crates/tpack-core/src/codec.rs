@@ -73,11 +73,17 @@ pub struct DecodeOptions {
     ///
     /// When enabled, the decoder reparses the embedded schema block and
     /// requires it to match the cached schema before reusing the cached AST.
+    /// This makes `FullSchemaWithId` cache hits fail closed when a local
+    /// registry entry is stale, misbound, or collides with a different schema:
+    /// the decoder returns [`ErrorKind::EmbeddedSchemaMismatch`] instead of
+    /// silently trusting the cached AST.
+    ///
     /// Disable this only when the schema-id namespace and registry binding are
     /// already authenticated or otherwise trusted for the deployment and the
     /// embedded schema bytes do not need to be checked. The recommended
     /// SHA-256 helper standardizes identifier derivation but does not
-    /// authenticate a cache entry by itself.
+    /// authenticate a cache entry by itself. `SchemaRef` has no embedded
+    /// schema bytes, so it always depends on the caller's registry binding.
     pub validate_embedded_schema_on_cache_hit: bool,
     pub limits: Limits,
 }
@@ -887,6 +893,20 @@ pub fn encode_message(
     Ok(encoder.into_vec())
 }
 
+/// Encode only the schema descriptor bytes for a schema.
+///
+/// The returned bytes are the exact input consumed by
+/// [`recommended_schema_id_sha256`]. Callers that do not want SHA-256 can
+/// derive any local `SchemaId` convention from these bytes, including
+/// precomputed or provisioned identifiers, and then pass the resulting opaque
+/// bytes to [`encode_message`] and their schema registry.
+///
+/// Collision detection and registry policy stay with the caller. If two
+/// distinct schemas are assigned the same local `SchemaId`, default
+/// `FullSchemaWithId` cache hits fail with
+/// [`ErrorKind::EmbeddedSchemaMismatch`] once the embedded descriptor differs
+/// from the cached schema, while `SchemaRef` depends entirely on the caller's
+/// registry binding.
 pub fn encode_schema(schema: &Schema) -> Result<Vec<u8>> {
     encode::schema(schema, EncodeOptions::default())
 }
@@ -901,11 +921,20 @@ pub fn encode_schema(schema: &Schema) -> Result<Vec<u8>> {
 /// digest; deployments that need a prefix or algorithm tag must add that
 /// outside this function.
 ///
+/// If the derived bytes are ever already bound to a different schema in a
+/// local registry, that collision or misbinding must be resolved by the
+/// caller. With the default decoder settings, `FullSchemaWithId` cache hits
+/// fail closed with [`ErrorKind::EmbeddedSchemaMismatch`] when the embedded
+/// descriptor disagrees with the cached schema; `SchemaRef` still trusts the
+/// caller's registry entry because it carries no embedded schema bytes.
+///
 /// This helper does not change the core wire format, does not make
 /// `SchemaId` hash-derived by requirement, and does not authenticate a
 /// registry binding or cached-schema reuse decision by itself. `SchemaId`
 /// remains an opaque byte string in the format; using this helper is a
-/// local deployment convention.
+/// local deployment convention. Use it when you want the draft's recommended
+/// content-derived default, and use [`encode_schema`] directly when you need
+/// a different local `SchemaId` derivation.
 pub fn recommended_schema_id_sha256(schema: &Schema) -> Result<[u8; 32]> {
     let schema_bytes = encode_schema(schema)?;
     let digest = Sha256::digest(schema_bytes);

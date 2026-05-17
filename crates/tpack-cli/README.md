@@ -11,6 +11,13 @@ recommended SHA-256 helper for `SchemaId`, that still only hashes the
 schema descriptor bytes; `SchemaId` remains opaque on the wire and cache
 binding trust still comes from the embedding deployment.
 
+Embedding applications that do not want SHA-256 can derive their own
+opaque `SchemaId` bytes from `encode_schema(&schema)` and supply those
+through the library API instead. Collision handling and registry policy
+remain outside the standalone CLI. The CLI therefore keeps rejecting
+`SchemaRef` unless an embedding application defines the binding scope
+explicitly through the library API.
+
 ## Commands
 
 - `decode`: decode payloads into the raw Rust debug view

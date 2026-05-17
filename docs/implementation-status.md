@@ -42,6 +42,16 @@ only a naming convention for uncoordinated deployments. It hashes the
 canonical schema descriptor bytes, but it does not authenticate a cache
 namespace or registry binding by itself.
 
+The current decoder already fails closed on `FullSchemaWithId` cache-hit
+conflicts: if a registry entry exists for a `SchemaId` and the embedded
+schema decodes differently, decode fails with
+`EmbeddedSchemaMismatch` instead of replacing the binding.
+
+For constrained-device profiles that use a simpler hash or a locally
+assigned `SchemaId`, the core codec still only sees opaque bytes. Scope,
+reset behavior, and when `SchemaRef` is admissible remain deployment
+policy outside the codec.
+
 ## Deliberately Not Changed In This Sync
 
 - no `TPACK`/`TPAK` magic rename in code or vectors; the current draft

@@ -86,6 +86,21 @@ using `kramdown-rfc`.  Regenerate the rendered artifacts with:
 make -C drafts
 ```
 
+`scripts/build-draft.sh` (invoked by that Makefile) prefers a local
+`kramdown-rfc2629` / `kramdown-rfc` install.  If neither is on `PATH`,
+it falls back to Docker (`ruby:3.3-slim` by default) and caches the gem
+in a named volume so subsequent runs skip reinstall.  You still need a
+local `xml2rfc` for the XML → text/html step
+(`pip install --user xml2rfc` is enough).
+
+Override the image or gem-cache volume if needed:
+
+```bash
+KRAMDOWN_DOCKER_IMAGE=ruby:3.3-slim \
+KRAMDOWN_GEM_CACHE_VOLUME=tpack-kramdown-gem-cache \
+make -C drafts
+```
+
 `make -C drafts` writes `drafts/draft-zhang-tpack-format-00.xml`,
 `drafts/draft-zhang-tpack-format-00.txt`, and
 `drafts/draft-zhang-tpack-format-00.html`.  Run `idnits` against the

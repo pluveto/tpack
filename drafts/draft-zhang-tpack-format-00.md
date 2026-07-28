@@ -256,11 +256,11 @@ informative:
 
    UVarInt:
       The unsigned variable-length integer encoding defined in
-      Section 5.6.
+      Section 6.6.
 
    SVarInt:
       The signed variable-length integer encoding defined in
-      Section 5.7.
+      Section 6.7.
 
    Canonical Encoding:
       The unique shortest valid byte representation of a TPACK message,
@@ -600,8 +600,10 @@ informative:
    ambiguous, conflicting, expired, or out of scope for the current
    context.
 
-   Implementations SHOULD expose errors corresponding to the following
-   conditions where applicable:
+   Implementations SHOULD surface the following conditions where
+   applicable.  These need not all be members of a single codec error
+   vocabulary: binding and profile conflicts MAY be reported via
+   registry or profile APIs separately from codec decode errors.
 
       UNKNOWN_SCHEMA_ID
       INVALID_SCHEMA_ID
@@ -1276,7 +1278,7 @@ informative:
 
    A canonical encoder MUST:
 
-   *  Use the exact header defined in Section 5.2.
+   *  Use the exact header defined in Section 6.2.
 
    *  Use the envelope mode declared by the application protocol.  For
       standalone interchange, use FullSchema.  If an application

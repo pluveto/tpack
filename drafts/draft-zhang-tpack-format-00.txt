@@ -72,10 +72,10 @@ Table of Contents
      6.4.  Schema Identifiers  . . . . . . . . . . . . . . . . . . .  11
        6.4.1.  Recommended SchemaId Profile  . . . . . . . . . . . .  11
      6.5.  Schema Skipping . . . . . . . . . . . . . . . . . . . . .  12
-     6.6.  Unsigned Variable-Length Integer  . . . . . . . . . . . .  13
+     6.6.  Unsigned Variable-Length Integer  . . . . . . . . . . . .  14
      6.7.  Signed Variable-Length Integer  . . . . . . . . . . . . .  14
      6.8.  Text String Component . . . . . . . . . . . . . . . . . .  14
-     6.9.  Byte String Component . . . . . . . . . . . . . . . . . .  14
+     6.9.  Byte String Component . . . . . . . . . . . . . . . . . .  15
    7.  Schema Block  . . . . . . . . . . . . . . . . . . . . . . . .  15
      7.1.  Type Descriptor Encoding  . . . . . . . . . . . . . . . .  15
      7.2.  Type Tag Registry . . . . . . . . . . . . . . . . . . . .  15
@@ -301,10 +301,10 @@ Internet-Draft                    TPACK                         May 2026
    Byte String: An uninterpreted sequence of octets.
 
    UVarInt: The unsigned variable-length integer encoding defined in
-   Section 5.6.
+   Section 6.6.
 
    SVarInt: The signed variable-length integer encoding defined in
-   Section 5.7.
+   Section 6.7.
 
    Canonical Encoding: The unique shortest valid byte representation of
    a TPACK message, as defined in Section 10.
@@ -707,8 +707,10 @@ Internet-Draft                    TPACK                         May 2026
    ambiguous, conflicting, expired, or out of scope for the current
    context.
 
-   Implementations SHOULD expose errors corresponding to the following
-   conditions where applicable:
+   Implementations SHOULD surface the following conditions where
+   applicable.  These need not all be members of a single codec error
+   vocabulary: binding and profile conflicts MAY be reported via
+   registry or profile APIs separately from codec decode errors.
 
      UNKNOWN_SCHEMA_ID
      INVALID_SCHEMA_ID
@@ -718,10 +720,8 @@ Internet-Draft                    TPACK                         May 2026
      SCHEMA_LENGTH_EXCEEDED
      SCHEMA_LENGTH_MISMATCH
 
-6.6.  Unsigned Variable-Length Integer
 
-   UVarInt encodes a non-negative integer using base-128 little-endian
-   continuation bytes.
+
 
 
 
@@ -729,6 +729,11 @@ Zhang                   Expires 17 November 2026               [Page 13]
 
 Internet-Draft                    TPACK                         May 2026
 
+
+6.6.  Unsigned Variable-Length Integer
+
+   UVarInt encodes a non-negative integer using base-128 little-endian
+   continuation bytes.
 
    Each octet contributes seven payload bits.  The most significant bit
    is the continuation bit.  If the continuation bit is 1, another octet
@@ -773,11 +778,6 @@ Internet-Draft                    TPACK                         May 2026
    visible characters.  Decoders MUST validate UTF-8 according to
    [RFC3629].
 
-6.9.  Byte String Component
-
-   A byte string component is encoded as:
-
-
 
 
 
@@ -785,6 +785,10 @@ Zhang                   Expires 17 November 2026               [Page 14]
 
 Internet-Draft                    TPACK                         May 2026
 
+
+6.9.  Byte String Component
+
+   A byte string component is encoded as:
 
      Length  : UVarInt
      Content : Length octets
@@ -815,10 +819,6 @@ Internet-Draft                    TPACK                         May 2026
 7.2.  Type Tag Registry
 
    The following tags are defined by TPACK version 1:
-
-
-
-
 
 
 
@@ -1502,7 +1502,7 @@ Internet-Draft                    TPACK                         May 2026
 
    A canonical encoder MUST:
 
-   *  Use the exact header defined in Section 5.2.
+   *  Use the exact header defined in Section 6.2.
 
 
 

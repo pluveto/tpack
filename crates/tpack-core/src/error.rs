@@ -217,14 +217,18 @@ impl fmt::Display for Error {
             ErrorKind::VarintOverflow => {
                 f.write_str("variable-length integer exceeds supported size")?
             }
-            ErrorKind::SchemaLengthMismatch => f.write_str("schema length mismatch")?,
+            ErrorKind::SchemaLengthMismatch => {
+                f.write_str("schema length does not match descriptor")?
+            }
             ErrorKind::SchemaLengthExceeded => {
                 f.write_str("schema length exceeds configured limit")?
             }
             ErrorKind::InvalidSchemaId => f.write_str("invalid schema id")?,
             ErrorKind::UnknownSchemaId => f.write_str("unknown schema id")?,
             ErrorKind::SchemaRefNotAllowed => f.write_str("schema references are not allowed")?,
-            ErrorKind::EmbeddedSchemaMismatch => f.write_str("embedded schema mismatch")?,
+            ErrorKind::EmbeddedSchemaMismatch => {
+                f.write_str("embedded schema does not match cached schema")?
+            }
             ErrorKind::InvalidDecimalParameters => {
                 f.write_str("invalid Decimal(P,S) parameters")?
             }

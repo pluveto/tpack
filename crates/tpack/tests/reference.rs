@@ -77,6 +77,19 @@ mod reference_cases {
     }
 
     #[cfg(feature = "std")]
+    fn xxh64_v1_flat_with_id_hex() -> Vec<u8> {
+        decode_hex_bytes(include_str!(
+            "../../../test-vectors/v1/reference/xxh64-v1-flat-record/full-schema-with-id.hex"
+        ))
+    }
+
+    fn xxh64_v1_flat_schema_ref_hex() -> Vec<u8> {
+        decode_hex_bytes(include_str!(
+            "../../../test-vectors/v1/reference/xxh64-v1-flat-record/schema-ref.hex"
+        ))
+    }
+
+    #[cfg(feature = "std")]
     #[test]
     fn schema_id_helpers_match_documented_profiles() {
         let schema = flat_schema();
@@ -250,6 +263,74 @@ mod reference_cases {
             decoder.decode_message().unwrap_err().kind(),
             ErrorKind::SchemaRefNotAllowed
         ));
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn xxh64_v1_flat_record_vectors_decode_with_official_schema_id() {
+        let schema = flat_schema();
+        let value = flat_value();
+        let schema_id = recommended_schema_id_xxh64_v1(&schema).unwrap();
+        assert_eq!(schema_id, [0x23, 0x73, 0x76, 0xF7, 0x21, 0xB6, 0x0A, 0x41]);
+
+        assert_eq!(
+            encode_message(
+                &schema,
+                &value,
+                EnvelopeMode::FullSchemaWithId,
+                Some(&schema_id),
+            )
+            .unwrap(),
+            xxh64_v1_flat_with_id_hex()
+        );
+        assert_eq!(
+            encode_message(&schema, &value, EnvelopeMode::SchemaRef, Some(&schema_id)).unwrap(),
+            xxh64_v1_flat_schema_ref_hex()
+        );
+
+        let with_id_bytes = xxh64_v1_flat_with_id_hex();
+        let mut decoder = Decoder::new(&with_id_bytes);
+        let with_id = decoder.decode_message().unwrap();
+        assert_eq!(with_id.envelope.mode, EnvelopeMode::FullSchemaWithId);
+        assert!(!with_id.envelope.used_cached_schema);
+        assert_eq!(with_id.schema.as_ref(), &schema);
+        assert_eq!(with_id.value, value);
+        assert_eq!(
+            with_id.envelope.schema_id.as_ref().map(|id| id.as_bytes()),
+            Some(schema_id.as_slice())
+        );
+
+        let schema_ref_bytes = xxh64_v1_flat_schema_ref_hex();
+        let mut decoder = Decoder::new(&schema_ref_bytes);
+        assert!(matches!(
+            decoder.decode_message().unwrap_err().kind(),
+            ErrorKind::UnknownSchemaId
+        ));
+
+        let registry = tpack::StdSchemaRegistry::new();
+        registry.insert(schema_id, schema.clone()).unwrap();
+
+        let mut decoder = Decoder::new(&schema_ref_bytes);
+        let schema_ref = decoder.decode_message_with_registry(&registry).unwrap();
+        assert_eq!(schema_ref.envelope.mode, EnvelopeMode::SchemaRef);
+        assert!(schema_ref.envelope.used_cached_schema);
+        assert_eq!(schema_ref.schema.as_ref(), &schema);
+        assert_eq!(schema_ref.value, value);
+        assert_eq!(
+            schema_ref
+                .envelope
+                .schema_id
+                .as_ref()
+                .map(|id| id.as_bytes()),
+            Some(schema_id.as_slice())
+        );
+
+        let mut decoder = Decoder::new(&with_id_bytes);
+        let with_id_cached = decoder.decode_message_with_registry(&registry).unwrap();
+        assert_eq!(with_id_cached.envelope.mode, EnvelopeMode::FullSchemaWithId);
+        assert!(with_id_cached.envelope.used_cached_schema);
+        assert_eq!(with_id_cached.schema.as_ref(), &schema);
+        assert_eq!(with_id_cached.value, value);
     }
 
     #[test]

@@ -51,6 +51,11 @@ conflicts: if a registry entry exists for a `SchemaId` and the embedded
 schema decodes differently, decode fails with
 `EmbeddedSchemaMismatch` instead of replacing the binding.
 
+`StdSchemaRegistry::insert` / `insert_shared` are also fail-closed and
+now return `Result<(), SchemaBindingConflict>` (a breaking change from
+earlier 0.1 always-succeed insert). Conflicting rebinds are rejected;
+use `replace` / `replace_shared` to override.
+
 For deployments that use `xxh64-v1`, another agreed profile, or a
 locally assigned `SchemaId`, the core codec still only sees opaque
 bytes. Scope, reset behavior, and `SchemaRef` admissibility remain

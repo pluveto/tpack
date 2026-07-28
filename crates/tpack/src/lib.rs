@@ -117,11 +117,17 @@ mod std_registry {
         }
 
         pub fn remove(&self, schema_id: &[u8]) -> Option<Arc<Schema>> {
-            self.inner.write().ok()?.remove(schema_id)
+            self.inner
+                .write()
+                .expect("StdSchemaRegistry lock poisoned")
+                .remove(schema_id)
         }
 
         pub fn len(&self) -> usize {
-            self.inner.read().map(|schemas| schemas.len()).unwrap_or(0)
+            self.inner
+                .read()
+                .expect("StdSchemaRegistry lock poisoned")
+                .len()
         }
 
         pub fn is_empty(&self) -> bool {
@@ -131,7 +137,11 @@ mod std_registry {
 
     impl SchemaRegistry for StdSchemaRegistry {
         fn get(&self, schema_id: &[u8]) -> Option<Arc<Schema>> {
-            self.inner.read().ok()?.get(schema_id).cloned()
+            self.inner
+                .read()
+                .expect("StdSchemaRegistry lock poisoned")
+                .get(schema_id)
+                .cloned()
         }
     }
 }

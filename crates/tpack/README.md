@@ -14,15 +14,21 @@ This crate re-exports the core API and derive macros, and it hosts convenience f
 
 For low-latency use cases, prefer the native traits and a schema registry that can resolve `SchemaRef` payloads without extra work.
 
-`StdSchemaRegistry` follows a fail-closed rule at insert time: `insert` / `insert_shared` reject rebinding the same `SchemaId` to different schema content and preserve the existing binding. Callers that need to override a binding can opt into `replace` / `replace_shared`.
+**Breaking API change (relative to earlier 0.1 behavior):**
+`StdSchemaRegistry::insert` / `insert_shared` now return
+`Result<(), SchemaBindingConflict>` instead of always succeeding.
+They follow a fail-closed rule at insert time: rebinding the same
+`SchemaId` to different schema content is rejected and the existing
+binding is preserved. Callers that need to override a binding should
+use `replace` / `replace_shared`.
 
 `recommended_schema_id_xxh64_v1(&schema)` returns the official helper for
 the repository's `xxh64-v1` profile: a fixed 8-byte big-endian
 `SchemaId` derived from `encode_schema(&schema)`.
 
 `tpack-core` intentionally stops at `encode_schema(&schema)` and does not
-carry any hash dependency. The official `xxh64-v1` helper lives here in
-the `std` facade.
+carry any hash dependency. The official `xxh64-v1` helper lives in this
+`tpack` integration crate (not in `tpack-core`).
 
 Current conformance boundary:
 

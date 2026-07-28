@@ -16,6 +16,7 @@ serde_support = ["std", "dep:serde"]
 
 [dependencies]
 tpack-core.workspace = true
+xxhash-rust = { version = "0.8.15", default-features = false, features = ["xxh64"] }
 tpack-macros = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 

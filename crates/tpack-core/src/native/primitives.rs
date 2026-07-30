@@ -1,4 +1,4 @@
-use crate::{Decimal, Result, Schema, TpackValue, TypeDescriptor};
+use crate::{BigInt, BigUint, Decimal, Result, Schema, TpackValue, TypeDescriptor};
 
 use super::helpers::{deserialize_via_from_value, type_mismatch};
 use super::{FromTpackValue, TpackDeserialize, TpackSerialize};
@@ -47,4 +47,90 @@ impl_scalar!(u32, U32, U32, "U32");
 impl_scalar!(u64, U64, U64, "U64");
 impl_scalar!(f32, F32, F32, "F32");
 impl_scalar!(f64, F64, F64, "F64");
-impl_scalar!(Decimal, Decimal, Decimal, "Decimal");
+
+impl TpackSerialize for Decimal {
+    fn schema() -> Schema {
+        Schema::new(TypeDescriptor::Decimal)
+    }
+
+    fn to_value(&self) -> TpackValue<'_> {
+        TpackValue::Decimal(self.clone())
+    }
+}
+
+impl<'de> TpackDeserialize<'de> for Decimal {
+    fn schema() -> Schema {
+        <Self as TpackSerialize>::schema()
+    }
+
+    fn from_value(value: TpackValue<'de>) -> Result<Self> {
+        deserialize_via_from_value(value)
+    }
+}
+
+impl<'de> FromTpackValue<'de> for Decimal {
+    fn from_value(value: TpackValue<'de>) -> Result<Self> {
+        match value {
+            TpackValue::Decimal(value) => Ok(value),
+            _ => Err(type_mismatch("Decimal")),
+        }
+    }
+}
+
+impl TpackSerialize for BigInt {
+    fn schema() -> Schema {
+        Schema::new(TypeDescriptor::BigInt)
+    }
+
+    fn to_value(&self) -> TpackValue<'_> {
+        TpackValue::BigInt(self.clone())
+    }
+}
+
+impl<'de> TpackDeserialize<'de> for BigInt {
+    fn schema() -> Schema {
+        <Self as TpackSerialize>::schema()
+    }
+
+    fn from_value(value: TpackValue<'de>) -> Result<Self> {
+        deserialize_via_from_value(value)
+    }
+}
+
+impl<'de> FromTpackValue<'de> for BigInt {
+    fn from_value(value: TpackValue<'de>) -> Result<Self> {
+        match value {
+            TpackValue::BigInt(value) => Ok(value),
+            _ => Err(type_mismatch("BigInt")),
+        }
+    }
+}
+
+impl TpackSerialize for BigUint {
+    fn schema() -> Schema {
+        Schema::new(TypeDescriptor::BigUInt)
+    }
+
+    fn to_value(&self) -> TpackValue<'_> {
+        TpackValue::BigUInt(self.clone())
+    }
+}
+
+impl<'de> TpackDeserialize<'de> for BigUint {
+    fn schema() -> Schema {
+        <Self as TpackSerialize>::schema()
+    }
+
+    fn from_value(value: TpackValue<'de>) -> Result<Self> {
+        deserialize_via_from_value(value)
+    }
+}
+
+impl<'de> FromTpackValue<'de> for BigUint {
+    fn from_value(value: TpackValue<'de>) -> Result<Self> {
+        match value {
+            TpackValue::BigUInt(value) => Ok(value),
+            _ => Err(type_mismatch("BigUInt")),
+        }
+    }
+}

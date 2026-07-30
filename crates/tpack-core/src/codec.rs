@@ -41,7 +41,15 @@ pub struct Limits {
     pub max_string_len: usize,
     pub max_bytes_len: usize,
     pub max_extension_len: usize,
+    /// Maximum wire length of ordinary (length/id/count) UVarInts (`u64` path).
     pub max_varint_bytes: usize,
+    /// Maximum wire length of a single bigint UVarInt/SVarInt payload
+    /// (`Decimal` coefficient, `Decimal(P,S)` coefficient, `BigInt`, `BigUInt`).
+    pub max_bigint_bytes: usize,
+    /// Maximum base-10 digit count for `Decimal` / `Decimal(P,S)` coefficients.
+    ///
+    /// `Decimal(P,S)` is also capped by schema precision `P`.
+    pub max_decimal_digits: u64,
 }
 
 impl Default for Limits {
@@ -57,6 +65,8 @@ impl Default for Limits {
             max_bytes_len: 16 * 1024 * 1024,
             max_extension_len: 16 * 1024 * 1024,
             max_varint_bytes: 10,
+            max_bigint_bytes: 1024,
+            max_decimal_digits: 10_000,
         }
     }
 }
@@ -482,13 +492,15 @@ impl<'de> Decoder<'de> {
             }
             TypeDescriptor::Decimal => {
                 let scale = self.read_svarint()?;
-                let coefficient = self.read_svarint()?;
+                let coefficient = self.read_svarint_big()?;
+                validate::validate_decimal_digits(&coefficient, &self.options.limits)?;
                 TpackValue::Decimal(Decimal { scale, coefficient })
             }
             TypeDescriptor::DecimalFixed { precision, .. } => {
-                let coefficient = self.read_svarint()?;
-                if validate::decimal_digits_abs(coefficient) > *precision {
-                    return Err(Error::invalid("Decimal(P,S) coefficient exceeds precision"));
+                let coefficient = self.read_svarint_big()?;
+                let digits = validate::validate_decimal_digits(&coefficient, &self.options.limits)?;
+                if digits > *precision {
+                    return Err(Error::new(ErrorKind::DecimalCoefficientExceedsPrecision));
                 }
                 TpackValue::DecimalFixed(coefficient)
             }
@@ -538,8 +550,8 @@ impl<'de> Decoder<'de> {
                 validate::validate_duration(seconds, nanos)?;
                 TpackValue::Duration(Duration { seconds, nanos })
             }
-            TypeDescriptor::BigInt => TpackValue::BigInt(self.read_svarint()?),
-            TypeDescriptor::BigUInt => TpackValue::BigUInt(self.read_uvarint()?),
+            TypeDescriptor::BigInt => TpackValue::BigInt(self.read_svarint_big()?),
+            TypeDescriptor::BigUInt => TpackValue::BigUInt(self.read_uvarint_big()?),
             TypeDescriptor::CalendarInterval => {
                 let months = self.read_svarint()?;
                 let days = self.read_svarint()?;
@@ -734,6 +746,31 @@ impl<'de> Decoder<'de> {
     fn read_svarint(&mut self) -> Result<i64> {
         let raw = self.read_uvarint()?;
         Ok(((raw >> 1) as i64) ^ (-((raw & 1) as i64)))
+    }
+
+    fn read_uvarint_big(&mut self) -> Result<num_bigint::BigUint> {
+        let start = self.pos;
+        let mut value = num_bigint::BigUint::ZERO;
+        let max_bytes = self.options.limits.max_bigint_bytes.max(1);
+        for i in 0..max_bytes {
+            let byte = self.read_u8()?;
+            let payload = num_bigint::BigUint::from(byte & 0x7F);
+            value |= payload << (7 * i);
+            if byte & 0x80 == 0 {
+                let encoded_len = self.pos - start;
+                if self.options.canonical.is_strict()
+                    && encoded_len != wire::uvarint_big_len(&value)
+                {
+                    return Err(Error::new(ErrorKind::OverlongVarint));
+                }
+                return Ok(value);
+            }
+        }
+        Err(Error::limit("bigint varint size"))
+    }
+
+    fn read_svarint_big(&mut self) -> Result<num_bigint::BigInt> {
+        Ok(wire::zigzag_decode_big(self.read_uvarint_big()?))
     }
 
     fn read_len(&mut self, name: &'static str) -> Result<usize> {
@@ -935,12 +972,15 @@ mod tests {
     fn flat_value<'a>() -> TpackValue<'a> {
         TpackValue::Struct(vec![
             (1, TpackValue::String(Cow::Borrowed("prod_001"))),
-            (2, TpackValue::DecimalFixed(2_999_900)),
+            (
+                2,
+                TpackValue::DecimalFixed(num_bigint::BigInt::from(2_999_900)),
+            ),
             (
                 3,
                 TpackValue::Decimal(Decimal {
                     scale: 3,
-                    coefficient: 13_725,
+                    coefficient: num_bigint::BigInt::from(13_725),
                 }),
             ),
             (4, TpackValue::I32(10)),
@@ -1032,5 +1072,154 @@ mod tests {
             encode::schema(&schema, options).unwrap_err().kind(),
             ErrorKind::SchemaLengthExceeded
         ));
+    }
+
+    #[test]
+    fn large_bigint_and_decimal_roundtrip() {
+        // 2^100 + 7 exceeds both i64 and u64.
+        let huge: num_bigint::BigInt = num_bigint::BigInt::from(2).pow(100) + 7;
+        let huge_u: num_bigint::BigUint = num_bigint::BigUint::from(2u32).pow(100) + 7u32;
+        let neg_huge: num_bigint::BigInt = -huge.clone();
+
+        let schema = Schema::new(TypeDescriptor::Struct(vec![
+            Field::new(1, "bi", TypeDescriptor::BigInt),
+            Field::new(2, "bu", TypeDescriptor::BigUInt),
+            Field::new(3, "dec", TypeDescriptor::Decimal),
+            Field::new(
+                4,
+                "fixed",
+                TypeDescriptor::DecimalFixed {
+                    precision: 50,
+                    scale: 0,
+                },
+            ),
+        ]));
+        let value = TpackValue::Struct(vec![
+            (1, TpackValue::BigInt(neg_huge.clone())),
+            (2, TpackValue::BigUInt(huge_u.clone())),
+            (
+                3,
+                TpackValue::Decimal(Decimal {
+                    scale: 4,
+                    coefficient: huge.clone(),
+                }),
+            ),
+            (4, TpackValue::DecimalFixed(huge.clone())),
+        ]);
+
+        let bytes =
+            encode_message(&schema, &value, EnvelopeMode::FullSchema, None).expect("encode");
+        let decoded = decode_message(&bytes).expect("decode");
+        assert_eq!(decoded.value, value);
+    }
+
+    #[test]
+    fn zigzag_large_negative_bigint_roundtrip() {
+        let value: num_bigint::BigInt = -num_bigint::BigInt::from(2).pow(200) - 99;
+        let schema = Schema::new(TypeDescriptor::BigInt);
+        let tpack_value = TpackValue::BigInt(value.clone());
+        let bytes =
+            encode_message(&schema, &tpack_value, EnvelopeMode::FullSchema, None).expect("encode");
+        let decoded = decode_message(&bytes).expect("decode");
+        assert_eq!(decoded.value, tpack_value);
+    }
+
+    #[test]
+    fn rejects_bigint_exceeding_max_bigint_bytes() {
+        let schema = Schema::new(TypeDescriptor::BigUInt);
+        // A value whose canonical encoding is longer than 2 bytes.
+        let value = TpackValue::BigUInt(num_bigint::BigUint::from(1u32) << 20);
+        let options = EncodeOptions {
+            limits: Limits {
+                max_bigint_bytes: 2,
+                ..Limits::default()
+            },
+            ..EncodeOptions::default()
+        };
+        let err = encode::value(&schema.root, &value, options).unwrap_err();
+        assert!(matches!(
+            err.kind(),
+            ErrorKind::LimitExceeded("bigint varint size")
+        ));
+    }
+
+    #[test]
+    fn rejects_overlong_bigint_varint_in_strict_mode() {
+        let schema = Schema::new(TypeDescriptor::BigUInt);
+        let value = TpackValue::BigUInt(num_bigint::BigUint::from(1u8));
+        let mut bytes =
+            encode_message(&schema, &value, EnvelopeMode::FullSchema, None).expect("encode");
+        // Append an overlong encoding of 1: 0x81 0x00 instead of 0x01 at the value position.
+        // Message layout: magic(4) + version(1) + mode(1) + schema_len + schema + value
+        // Schema is a single type tag 0x19, so value starts after that.
+        let value_pos = bytes.len() - 1;
+        assert_eq!(bytes[value_pos], 0x01);
+        bytes[value_pos] = 0x81;
+        bytes.push(0x00);
+
+        let mut decoder = Decoder::with_options(
+            &bytes,
+            DecodeOptions {
+                canonical: CanonicalMode::Strict,
+                ..DecodeOptions::default()
+            },
+        );
+        assert!(matches!(
+            decoder.decode_message().unwrap_err().kind(),
+            ErrorKind::OverlongVarint
+        ));
+    }
+
+    #[test]
+    fn rejects_decimal_fixed_digit_overflow_for_large_coefficient() {
+        let schema = Schema::new(TypeDescriptor::DecimalFixed {
+            precision: 5,
+            scale: 2,
+        });
+        // 100000 has 6 digits.
+        let value = TpackValue::DecimalFixed(num_bigint::BigInt::from(100_000));
+        let err = encode_message(&schema, &value, EnvelopeMode::FullSchema, None).unwrap_err();
+        assert!(matches!(
+            err.kind(),
+            ErrorKind::DecimalCoefficientExceedsPrecision
+        ));
+    }
+
+    #[test]
+    fn rejects_decimal_exceeding_max_decimal_digits() {
+        let schema = Schema::new(TypeDescriptor::Decimal);
+        let coefficient = num_bigint::BigInt::from(10).pow(20);
+        let value = TpackValue::Decimal(Decimal {
+            scale: 0,
+            coefficient,
+        });
+        let options = EncodeOptions {
+            limits: Limits {
+                max_decimal_digits: 10,
+                ..Limits::default()
+            },
+            ..EncodeOptions::default()
+        };
+        let err = encode::value(&schema.root, &value, options).unwrap_err();
+        assert!(matches!(
+            err.kind(),
+            ErrorKind::LimitExceeded("decimal digits")
+        ));
+    }
+
+    #[test]
+    fn small_bigint_wire_matches_legacy_i64_path() {
+        // Values that fit in i64 must produce the same SVarInt bytes as before.
+        let samples = [0i64, 1, -1, 63, -64, 127, -128, 2_999_900, 13_725, -9];
+        for sample in samples {
+            let mut legacy = alloc::vec::Vec::new();
+            wire::write_svarint(&mut legacy, sample);
+            let mut big = alloc::vec::Vec::new();
+            wire::write_uvarint_big(
+                &mut big,
+                &wire::zigzag_encode_big(&num_bigint::BigInt::from(sample)),
+            );
+            assert_eq!(legacy, big, "wire mismatch for {sample}");
+        }
     }
 }

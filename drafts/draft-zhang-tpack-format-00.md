@@ -1445,33 +1445,21 @@ informative:
    behavior is the default in the reference code.
 
    The specification data model defines Decimal, BigInt, and BigUInt as
-   arbitrary-precision types.  The current Rust implementation does not
-   yet expose arbitrary-precision semantics at that boundary.  Its
-   public value model currently uses signed or unsigned 64-bit host
-   integers for:
-
-   *  Decimal scale and coefficient.
-
-   *  Decimal(P,S) coefficient.
-
-   *  BigInt values.
-
-   *  BigUInt values.
-
-   Consequently, the present Rust implementation is a conforming
-   reference for TPACK version 1 only for the subset of messages whose
-   values fit within those 64-bit ranges.  Inputs that require larger
-   magnitudes are outside the current reference boundary and are
-   rejected during varint decoding or cannot be represented by the
-   implementation's exposed value API.  This limitation does not imply
-   any wire-format change; a future implementation can support larger
-   magnitudes while remaining wire compatible.
+   arbitrary-precision types.  The Rust reference implementation exposes
+   that model with `num-bigint` magnitudes for Decimal coefficients,
+   Decimal(P,S) coefficients, BigInt, and BigUInt.  Decimal scale remains
+   an i64 in the public API for practical range; a scale on the wire that
+   overflows i64 is rejected.  The implementation imposes explicit
+   decoder limits (default max bigint varint wire length and max decimal
+   digit count) as permitted by this specification, and rejects values
+   that exceed those limits.  Magnitudes that fit the historical 64-bit
+   host ranges remain wire-compatible with the published draft-00 test
+   vectors.
 
    Reviewers should therefore treat the Rust codebase as strong evidence
    for the envelope layout, schema encoding, validation rules,
-   canonicalization behavior, and cached-schema semantics, but not yet
-   as a complete executable oracle for every arbitrary-precision case
-   allowed by the abstract data model.
+   canonicalization behavior, cached-schema semantics, and the
+   arbitrary-precision numeric value paths within the configured limits.
 
 # Test Vectors
 

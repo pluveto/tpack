@@ -40,16 +40,19 @@ Borrowed payloads stay borrowed:
 - bytes are represented as `&'de [u8]`
 - structural values are decoded according to the active schema
 
-Current conformance boundary:
+Numeric value model (arbitrary precision with decoder limits):
 
-- `Decimal { coefficient, scale }` is still `i64`-backed
-- `DecimalFixed` is still `i64`-backed
-- `BigInt` is still `i64`-backed
-- `BigUInt` is still `u64`-backed
+- `Decimal { scale: i64, coefficient: BigInt }`
+- `DecimalFixed(BigInt)` for `Decimal(P,S)` coefficients
+- `BigInt(BigInt)` / `BigUInt(BigUint)`
+- Re-exports: `tpack_core::{BigInt, BigUint}` from `num-bigint`
 
-The envelope layout, schema encoding, validation rules, and canonical
-checks are implemented, but arbitrary-precision numeric semantics are
-not fully landed yet.
+Default limits (`Limits`):
+
+- `max_bigint_bytes = 1024` — max wire length of one bigint varint
+- `max_decimal_digits = 10_000` — max base-10 digits for decimal coefficients
+
+Lengths, field ids, and counts still use the `u64` varint path.
 
 ## Canonical Mode
 
@@ -62,7 +65,7 @@ When canonical checking is enabled, the decoder rejects:
 
 ## Limits
 
-`Limits` apply to both schema validation and value processing. In particular, `max_schema_len` is enforced symmetrically on decode and encode paths so an encoder cannot emit a schema that the decoder would reject under the same limits.
+`Limits` apply to both schema validation and value processing. In particular, `max_schema_len` is enforced symmetrically on decode and encode paths so an encoder cannot emit a schema that the decoder would reject under the same limits. `max_bigint_bytes` and `max_decimal_digits` cap arbitrary-precision numeric payloads for DoS control.
 
 ## Reference Assets
 

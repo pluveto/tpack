@@ -1,5 +1,7 @@
 use alloc::collections::BTreeSet;
 
+use num_bigint::BigInt;
+
 use super::Limits;
 use crate::{Error, Result, Schema, TpackValue, TypeDescriptor};
 
@@ -80,18 +82,29 @@ pub(in crate::codec) fn validate_byte_len(
     Ok(())
 }
 
-pub(in crate::codec) fn decimal_digits_abs(value: i64) -> u64 {
-    let mut value = if value < 0 {
-        -(value as i128)
-    } else {
-        value as i128
-    };
-    let mut digits = 1;
-    while value >= 10 {
-        value /= 10;
-        digits += 1;
+/// Base-10 digit count of `|value|`. Zero has precision 1 per the draft.
+pub(in crate::codec) fn decimal_digits_abs(value: &BigInt) -> u64 {
+    if value.sign() == num_bigint::Sign::NoSign {
+        return 1;
     }
-    digits
+    // `to_str_radix(10)` yields the absolute magnitude without a sign prefix.
+    let digits = value.magnitude().to_str_radix(10).len();
+    u64::try_from(digits).unwrap_or(u64::MAX)
+}
+
+pub(in crate::codec) fn validate_decimal_digits(value: &BigInt, limits: &Limits) -> Result<u64> {
+    let digits = decimal_digits_abs(value);
+    if digits > limits.max_decimal_digits {
+        return Err(Error::limit("decimal digits"));
+    }
+    Ok(digits)
+}
+
+pub(in crate::codec) fn validate_bigint_wire_len(len: usize, limits: &Limits) -> Result<()> {
+    if len > limits.max_bigint_bytes {
+        return Err(Error::limit("bigint varint size"));
+    }
+    Ok(())
 }
 
 struct SchemaValidator<'a> {

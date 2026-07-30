@@ -52,14 +52,16 @@ If a deployment uses `xxh64-v1`, it must keep the binding scope explicit and fai
 
 This repository is the Rust reference implementation for the envelope layout, schema encoding, validation rules, canonicalization behavior, and the example vectors in the Internet-Draft.
 
-The draft data model defines `Decimal`, `BigInt`, and `BigUInt` as arbitrary-precision types. The current Rust value model does not fully implement that boundary yet:
+The draft data model defines `Decimal`, `BigInt`, and `BigUInt` as arbitrary-precision types. The Rust value model matches that boundary via `num-bigint`, with explicit decoder limits:
 
-- `Decimal` currently uses `i64` scale and `i64` coefficient
-- `Decimal(P,S)` currently uses an `i64` coefficient
-- `BigInt` currently maps to `i64`
-- `BigUInt` currently maps to `u64`
+- `Decimal { scale: i64, coefficient: BigInt }`
+- `Decimal(P,S)` coefficient is `BigInt` (also capped by schema precision `P`)
+- `BigInt` / `BigUInt` use `num_bigint::{BigInt, BigUint}`
+- Default limits: `max_bigint_bytes = 1024`, `max_decimal_digits = 10_000`
 
-That means the current implementation is a conforming executable reference only for messages whose values fit inside those ranges.
+Scale stays `i64` for practical range. Small values that fit historical
+`i64`/`u64` ranges remain wire-compatible with published test vectors.
+See `docs/implementation-status.md` for details.
 
 ## Verification
 

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/pluveto/tpack/compare/tpack-cli-v0.1.1...tpack-cli-v0.2.0) - 2026-07-30
+
+### Added
+
+- *(core)* land arbitrary-precision Decimal and BigInt value model ([#6](https://github.com/pluveto/tpack/pull/6))
+
 ### Changed
 
 - inspect JSON prints `BigInt` / `BigUInt` / `DecimalFixed` and decimal

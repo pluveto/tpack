@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0](https://github.com/pluveto/tpack/compare/tpack-v0.1.1...tpack-v0.2.0) - 2026-07-30
+
+### Added
+
+- *(core)* land arbitrary-precision Decimal and BigInt value model ([#6](https://github.com/pluveto/tpack/pull/6))
+
+### Other
+
+- prepared schema, encoder reuse, and benchmark matrix ([#9](https://github.com/pluveto/tpack/pull/9))
+
 ### Added
 
 - Re-export `PreparedSchema` / `encode_prepared_message` from `tpack-core`

@@ -352,8 +352,10 @@ impl<'a> JsonFormatter<'a> {
                 shared::line(out, indent, &shared::float_json(f64::from(*value)))
             }
             TpackValue::F64(value) => shared::line(out, indent, &shared::float_json(*value)),
-            TpackValue::Decimal(value) => shared::decimal_json(out, indent, *value),
-            TpackValue::DecimalFixed(value) => shared::line(out, indent, &value.to_string()),
+            TpackValue::Decimal(value) => shared::decimal_json(out, indent, value),
+            TpackValue::DecimalFixed(value) => {
+                shared::line(out, indent, &shared::big_int_json(value))
+            }
             TpackValue::String(value) => {
                 shared::line(out, indent, &format!("\"{}\"", shared::json_escape(value)))
             }
@@ -385,8 +387,8 @@ impl<'a> JsonFormatter<'a> {
             }
             TpackValue::Timestamp(value) => shared::line(out, indent, &value.to_string()),
             TpackValue::Duration(value) => shared::duration_json(out, indent, *value),
-            TpackValue::BigInt(value) => shared::line(out, indent, &value.to_string()),
-            TpackValue::BigUInt(value) => shared::line(out, indent, &value.to_string()),
+            TpackValue::BigInt(value) => shared::line(out, indent, &shared::big_int_json(value)),
+            TpackValue::BigUInt(value) => shared::line(out, indent, &shared::big_uint_json(value)),
             TpackValue::CalendarInterval(value) => {
                 shared::calendar_interval_json(out, indent, *value)
             }

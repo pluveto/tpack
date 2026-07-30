@@ -16,6 +16,7 @@ rust-version = "1.85"
 
 [workspace.dependencies]
 lexopt = "0.3"
+num-bigint = { version = "0.4", default-features = false }
 serde = { version = "1.0.228", default-features = false, features = ["std"] }
 tpack-core = { path = "crates/tpack-core", version = "0.1.1" }
 tpack = { path = "crates/tpack", version = "0.1.1" }

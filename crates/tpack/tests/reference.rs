@@ -1,9 +1,9 @@
 use std::borrow::Cow;
 
 use tpack::{
-    CanonicalMode, DecodeOptions, Decoder, EncodeOptions, EnvelopeMode, ErrorKind, Field, Schema,
-    TpackValue, TypeDescriptor, ValueMapEntry, Variant, encode_message, encode_schema,
-    recommended_schema_id_xxh64_v1,
+    BigInt, BigUint, CanonicalMode, DecodeOptions, Decoder, EncodeOptions, EnvelopeMode, ErrorKind,
+    Field, Schema, TpackValue, TypeDescriptor, ValueMapEntry, Variant, encode_message,
+    encode_schema, recommended_schema_id_xxh64_v1,
 };
 
 mod reference_cases {
@@ -38,12 +38,12 @@ mod reference_cases {
     fn flat_value<'a>() -> TpackValue<'a> {
         TpackValue::Struct(vec![
             (1, TpackValue::String(Cow::Borrowed("prod_001"))),
-            (2, TpackValue::DecimalFixed(2_999_900)),
+            (2, TpackValue::DecimalFixed(BigInt::from(2_999_900))),
             (
                 3,
                 TpackValue::Decimal(tpack::Decimal {
                     scale: 3,
-                    coefficient: 13_725,
+                    coefficient: BigInt::from(13_725),
                 }),
             ),
             (4, TpackValue::I32(10)),
@@ -394,7 +394,7 @@ mod reference_cases {
         assert!(
             encode_message(
                 &invalid_decimal,
-                &TpackValue::DecimalFixed(0),
+                &TpackValue::DecimalFixed(BigInt::from(0)),
                 EnvelopeMode::FullSchema,
                 None,
             )
@@ -982,8 +982,8 @@ mod reference_cases {
                     nanos: -3,
                 }),
             ),
-            (6, TpackValue::BigInt(-9)),
-            (7, TpackValue::BigUInt(9)),
+            (6, TpackValue::BigInt(BigInt::from(-9))),
+            (7, TpackValue::BigUInt(BigUint::from(9u64))),
             (
                 8,
                 TpackValue::CalendarInterval(tpack::CalendarInterval {
@@ -1060,7 +1060,7 @@ mod reference_cases {
         ]));
         let value = TpackValue::Union {
             index: 0,
-            value: Box::new(TpackValue::DecimalFixed(1_285_000)),
+            value: Box::new(TpackValue::DecimalFixed(BigInt::from(1_285_000))),
         };
         let bytes = encode_message(&schema, &value, EnvelopeMode::FullSchema, None).unwrap();
         assert_eq!(

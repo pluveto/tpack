@@ -23,8 +23,8 @@ mod tests {
     use std::{borrow::Cow, sync::Arc};
 
     use tpack::{
-        Envelope, EnvelopeMode, Field, Message, Schema, SchemaId, TpackValue, TypeDescriptor,
-        ValueMapEntry, Variant,
+        BigInt, Envelope, EnvelopeMode, Field, Message, Schema, SchemaId, TpackValue,
+        TypeDescriptor, ValueMapEntry, Variant,
     };
 
     use super::*;
@@ -51,7 +51,7 @@ mod tests {
         ]));
         let value = TpackValue::Struct(vec![
             (1, TpackValue::String(Cow::Borrowed("prod_001"))),
-            (2, TpackValue::DecimalFixed(2_999_900)),
+            (2, TpackValue::DecimalFixed(BigInt::from(2_999_900))),
             (3, TpackValue::I32(10)),
             (4, TpackValue::Bool(true)),
         ]);
@@ -175,7 +175,7 @@ mod tests {
             render_json(&sample_message(), InspectSection::Value),
             r#"{
   "id#1": "prod_001",
-  "price#2": 2999900,
+  "price#2": "2999900",
   "qty#3": 10,
   "active#4": true
 }

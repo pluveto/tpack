@@ -16,6 +16,8 @@ pub use codec::{
 };
 pub use error::{Error, ErrorKind, ErrorPath, ErrorSource, PathSegment, Result};
 pub use native::{FromTpackValue, TpackDeserialize, TpackSerialize};
+/// Re-export of the integer backend used for arbitrary-precision numerics.
+pub use num_bigint::{BigInt, BigUint};
 pub use registry::{SchemaRegistry, empty_registry};
 pub use schema::{
     CalendarInterval, Decimal, Duration, Envelope, EnvelopeMode, Field, Message, Schema, SchemaId,

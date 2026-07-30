@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** land arbitrary-precision numeric value model
+  - `Decimal.coefficient`, `TpackValue::DecimalFixed`, and
+    `TpackValue::BigInt` now use `num_bigint::BigInt`
+  - `TpackValue::BigUInt` now uses `num_bigint::BigUint`
+  - scale remains `i64`
+  - re-export `BigInt` / `BigUint` from the crate root
+- `Limits` gains `max_bigint_bytes` (default 1024) and
+  `max_decimal_digits` (default 10_000)
+- Bigint-capable varints are used only for decimal coefficients and
+  `BigInt`/`BigUInt`; small values remain wire-compatible with published
+  draft-00 vectors
+
 ## [0.1.1](https://github.com/pluveto/tpack/compare/tpack-core-v0.1.0...tpack-core-v0.1.1) - 2026-07-28
 
 ### Other

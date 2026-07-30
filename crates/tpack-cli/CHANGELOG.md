@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- inspect JSON prints `BigInt` / `BigUInt` / `DecimalFixed` and decimal
+  coefficients as decimal strings for exact large-integer display
+
 ## [0.1.1](https://github.com/pluveto/tpack/compare/tpack-cli-v0.1.0...tpack-cli-v0.1.1) - 2026-07-28
 
 ### Other

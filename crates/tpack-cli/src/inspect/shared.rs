@@ -1,8 +1,8 @@
 use std::fmt::Write;
 
 use tpack::{
-    CalendarInterval, Decimal, Duration, EnvelopeMode, TimestampPrecision, TpackValue,
-    TypeDescriptor,
+    BigInt, BigUint, CalendarInterval, Decimal, Duration, EnvelopeMode, TimestampPrecision,
+    TpackValue, TypeDescriptor,
 };
 
 pub(super) fn line(out: &mut String, indent: usize, text: &str) {
@@ -77,15 +77,25 @@ pub(super) fn write_optional_u64_json(
     }
 }
 
-pub(super) fn decimal_json(out: &mut String, indent: usize, value: Decimal) {
+pub(super) fn decimal_json(out: &mut String, indent: usize, value: &Decimal) {
     line(out, indent, "{");
     line(out, indent + 1, &format!("\"scale\": {},", value.scale));
+    // Decimal coefficients are always emitted as decimal strings so large
+    // magnitudes stay exact in JSON tooling (including beyond JS safe integers).
     line(
         out,
         indent + 1,
-        &format!("\"coefficient\": {}", value.coefficient),
+        &format!("\"coefficient\": \"{}\"", value.coefficient),
     );
     line(out, indent, "}");
+}
+
+pub(super) fn big_int_json(value: &BigInt) -> String {
+    format!("\"{value}\"")
+}
+
+pub(super) fn big_uint_json(value: &BigUint) -> String {
+    format!("\"{value}\"")
 }
 pub(super) fn duration_json(out: &mut String, indent: usize, value: Duration) {
     line(out, indent, "{");

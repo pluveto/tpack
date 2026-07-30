@@ -30,18 +30,24 @@ the repository's `xxh64-v1` profile: a fixed 8-byte big-endian
 carry any hash dependency. The official `xxh64-v1` helper lives in this
 `tpack` integration crate (not in `tpack-core`).
 
-Current conformance boundary:
+Numeric value model:
 
-- `Decimal` and `Decimal(P,S)` are still `i64`-backed in the exposed
-  value model
-- `BigInt` is still `i64`-backed
-- `BigUInt` is still `u64`-backed
+- `Decimal`, `Decimal(P,S)`, `BigInt`, and `BigUInt` use `num-bigint`
+  magnitudes (see `tpack-core` README / `docs/implementation-status.md`)
+- This is a **source-breaking** change relative to earlier 0.1.x
+  `i64`/`u64`-backed variants; construct values with `BigInt::from(...)`
+  / `BigUint::from(...)`
 
 ## Serde Path
 
 The serde bridge is available when the `serde_support` feature is enabled.
 
 `from_slice` and `from_value` keep the default path small. When serde decoding needs a registry, custom limits, or custom `DecodeOptions`, use `serde_support::Deserializer::new()` and configure it with builder-style methods before calling `slice` or `value`.
+
+Oversized `BigInt` / `BigUInt` / `DecimalFixed` values that do not fit
+`i64`/`u64` are exposed to serde visitors as **decimal strings** rather
+than silently truncated. Values that fit the host integer range still
+visit as `i64`/`u64`.
 
 ## Reference Assets
 

@@ -1,6 +1,8 @@
 use std::{borrow::Cow, fs, path::PathBuf, process};
 
-use tpack::{Decimal, EnvelopeMode, Field, Schema, TpackValue, TypeDescriptor, encode_message};
+use tpack::{
+    BigInt, Decimal, EnvelopeMode, Field, Schema, TpackValue, TypeDescriptor, encode_message,
+};
 
 fn main() {
     if let Err(err) = run() {
@@ -33,12 +35,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let value = TpackValue::Struct(vec![
         (1, TpackValue::String(Cow::Borrowed("prod_001"))),
-        (2, TpackValue::DecimalFixed(2_999_900)),
+        (2, TpackValue::DecimalFixed(BigInt::from(2_999_900))),
         (
             3,
             TpackValue::Decimal(Decimal {
                 scale: 3,
-                coefficient: 13_725,
+                coefficient: BigInt::from(13_725),
             }),
         ),
         (4, TpackValue::I32(10)),

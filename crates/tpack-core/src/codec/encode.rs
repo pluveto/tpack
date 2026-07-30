@@ -7,8 +7,8 @@ use super::{CanonicalMode, EncodeOptions, NANOS_PER_DAY, wire};
 use crate::{Error, ErrorKind, Result, Schema, TpackValue, TypeDescriptor};
 
 use super::validate::{
-    decimal_digits_abs, reject_nan_map_key, validate_byte_len, validate_count, validate_duration,
-    validate_schema,
+    reject_nan_map_key, validate_bigint_wire_len, validate_byte_len, validate_count,
+    validate_decimal_digits, validate_duration, validate_schema,
 };
 
 pub(in crate::codec) fn schema(schema: &Schema, options: EncodeOptions) -> Result<Vec<u8>> {
@@ -198,14 +198,16 @@ impl<'a> ValueEncoder<'a> {
                 self.out.extend_from_slice(&bits.to_be_bytes());
             }
             (TypeDescriptor::Decimal, TpackValue::Decimal(value)) => {
+                validate_decimal_digits(&value.coefficient, &self.options.limits)?;
                 wire::write_svarint(self.out, value.scale);
-                wire::write_svarint(self.out, value.coefficient);
+                self.write_svarint_big(&value.coefficient)?;
             }
             (TypeDescriptor::DecimalFixed { precision, .. }, TpackValue::DecimalFixed(value)) => {
-                if decimal_digits_abs(*value) > *precision {
-                    return Err(Error::invalid("Decimal(P,S) coefficient exceeds precision"));
+                let digits = validate_decimal_digits(value, &self.options.limits)?;
+                if digits > *precision {
+                    return Err(Error::new(ErrorKind::DecimalCoefficientExceedsPrecision));
                 }
-                wire::write_svarint(self.out, *value);
+                self.write_svarint_big(value)?;
             }
             (TypeDescriptor::String { max_len }, TpackValue::String(value)) => {
                 validate_byte_len("string length", value.len(), *max_len, &self.options.limits)?;
@@ -257,10 +259,10 @@ impl<'a> ValueEncoder<'a> {
                 wire::write_svarint(self.out, value.nanos);
             }
             (TypeDescriptor::BigInt, TpackValue::BigInt(value)) => {
-                wire::write_svarint(self.out, *value)
+                self.write_svarint_big(value)?;
             }
             (TypeDescriptor::BigUInt, TpackValue::BigUInt(value)) => {
-                wire::write_uvarint(self.out, *value)
+                self.write_uvarint_big(value)?;
             }
             (TypeDescriptor::CalendarInterval, TpackValue::CalendarInterval(value)) => {
                 wire::write_svarint(self.out, value.months);
@@ -318,6 +320,17 @@ impl<'a> ValueEncoder<'a> {
             }
         }
         Ok(())
+    }
+
+    fn write_uvarint_big(&mut self, value: &num_bigint::BigUint) -> Result<()> {
+        validate_bigint_wire_len(wire::uvarint_big_len(value), &self.options.limits)?;
+        wire::write_uvarint_big(self.out, value);
+        Ok(())
+    }
+
+    fn write_svarint_big(&mut self, value: &num_bigint::BigInt) -> Result<()> {
+        let raw = wire::zigzag_encode_big(value);
+        self.write_uvarint_big(&raw)
     }
 
     fn write_struct(

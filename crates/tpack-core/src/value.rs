@@ -1,5 +1,7 @@
 use alloc::{borrow::Cow, vec::Vec};
 
+use num_bigint::{BigInt, BigUint};
+
 use crate::{CalendarInterval, Decimal, Duration};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -17,7 +19,8 @@ pub enum TpackValue<'de> {
     F32(f32),
     F64(f64),
     Decimal(Decimal),
-    DecimalFixed(i64),
+    /// Coefficient for `Decimal(P,S)` (scale is in the schema).
+    DecimalFixed(BigInt),
     String(Cow<'de, str>),
     Bytes(Cow<'de, [u8]>),
     Date(i64),
@@ -33,8 +36,8 @@ pub enum TpackValue<'de> {
     },
     Timestamp(i64),
     Duration(Duration),
-    BigInt(i64),
-    BigUInt(u64),
+    BigInt(BigInt),
+    BigUInt(BigUint),
     CalendarInterval(CalendarInterval),
     Struct(Vec<(u64, TpackValue<'de>)>),
     List(Vec<TpackValue<'de>>),

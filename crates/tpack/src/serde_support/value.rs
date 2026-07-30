@@ -1,7 +1,15 @@
 use std::borrow::Cow;
 
 use serde::de::{self, Visitor};
-use tpack_core::{TpackValue, TypeDescriptor};
+use tpack_core::{BigInt, BigUint, TpackValue, TypeDescriptor};
+
+fn bigint_to_i64(value: &BigInt) -> Option<i64> {
+    i64::try_from(value).ok()
+}
+
+fn biguint_to_u64(value: &BigUint) -> Option<u64> {
+    u64::try_from(value).ok()
+}
 
 use super::access::{
     EnumValueAccess, MapValueAccess, SeqValueAccess, StructAccess, StructTupleAccess,
@@ -129,11 +137,17 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            TpackValue::I64(value)
-            | TpackValue::Date(value)
-            | TpackValue::Timestamp(value)
-            | TpackValue::BigInt(value) => visitor.visit_i64(value),
-            TpackValue::DecimalFixed(value) => visitor.visit_i64(value),
+            TpackValue::I64(value) | TpackValue::Date(value) | TpackValue::Timestamp(value) => {
+                visitor.visit_i64(value)
+            }
+            TpackValue::BigInt(value) => match bigint_to_i64(&value) {
+                Some(value) => visitor.visit_i64(value),
+                None => visitor.visit_string(value.to_string()),
+            },
+            TpackValue::DecimalFixed(value) => match bigint_to_i64(&value) {
+                Some(value) => visitor.visit_i64(value),
+                None => visitor.visit_string(value.to_string()),
+            },
             _ => Err(Error::type_mismatch(self.ty)),
         }
     }
@@ -180,9 +194,11 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
         V: Visitor<'de>,
     {
         match self.value {
-            TpackValue::U64(value) | TpackValue::Time(value) | TpackValue::BigUInt(value) => {
-                visitor.visit_u64(value)
-            }
+            TpackValue::U64(value) | TpackValue::Time(value) => visitor.visit_u64(value),
+            TpackValue::BigUInt(value) => match biguint_to_u64(&value) {
+                Some(value) => visitor.visit_u64(value),
+                None => visitor.visit_string(value.to_string()),
+            },
             TpackValue::Enum(index) => visitor.visit_u64(index),
             _ => Err(Error::type_mismatch(self.ty)),
         }
@@ -321,17 +337,36 @@ impl<'de, 'a> de::Deserializer<'de> for ValueDeserializer<'a, 'de> {
     {
         match (self.ty, self.value) {
             (TypeDescriptor::Decimal, TpackValue::Decimal(value)) => {
+                let coefficient = match bigint_to_i64(&value.coefficient) {
+                    Some(coefficient) => TpackValue::I64(coefficient),
+                    None => TpackValue::String(Cow::Owned(value.coefficient.to_string())),
+                };
+                let coefficient_ty = match &coefficient {
+                    TpackValue::String(_) => TypeDescriptor::String { max_len: None },
+                    _ => TypeDescriptor::I64,
+                };
                 visitor.visit_seq(SeqValueAccess::from_typed_values(
                     vec![
                         (TypeDescriptor::I64, TpackValue::I64(value.scale)),
-                        (TypeDescriptor::I64, TpackValue::I64(value.coefficient)),
+                        (coefficient_ty, coefficient),
                     ],
                     self.remaining_depth,
                 ))
             }
             (TypeDescriptor::DecimalFixed { .. }, TpackValue::DecimalFixed(value)) => {
-                visitor.visit_i64(value)
+                match bigint_to_i64(&value) {
+                    Some(value) => visitor.visit_i64(value),
+                    None => visitor.visit_string(value.to_string()),
+                }
             }
+            (TypeDescriptor::BigInt, TpackValue::BigInt(value)) => match bigint_to_i64(&value) {
+                Some(value) => visitor.visit_i64(value),
+                None => visitor.visit_string(value.to_string()),
+            },
+            (TypeDescriptor::BigUInt, TpackValue::BigUInt(value)) => match biguint_to_u64(&value) {
+                Some(value) => visitor.visit_u64(value),
+                None => visitor.visit_string(value.to_string()),
+            },
             (TypeDescriptor::DateTime, TpackValue::DateTime { days, nanos }) => {
                 visitor.visit_seq(SeqValueAccess::from_typed_values(
                     vec![

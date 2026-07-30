@@ -20,22 +20,38 @@ reference implementation relative to
   examples from the Examples section
 - dedicated cache-hit regression tests in
   `crates/tpack/tests/cache_validation.rs`
+- arbitrary-precision numeric value model for `Decimal`,
+  `Decimal(P,S)`, `BigInt`, and `BigUInt` (backed by `num-bigint`),
+  with explicit decoder/encoder limits
 
-## Known Boundary: Arbitrary Precision Is Not Fully Landed
+## Arbitrary-Precision Numerics
 
-The draft specifies `Decimal`, `BigInt`, and `BigUInt` as
-arbitrary-precision or arbitrary-size data model types. The current
-Rust value model is still bounded:
+The draft data model treats `Decimal`, `BigInt`, and `BigUInt` as
+arbitrary-precision or arbitrary-size types and allows implementations
+to impose limits. The Rust value model now matches that boundary:
 
-- `Decimal { coefficient: i64, scale: i64 }`
-- `DecimalFixed(i64)`
-- `BigInt(i64)`
-- `BigUInt(u64)`
+- `Decimal { scale: i64, coefficient: BigInt }`
+- `DecimalFixed(BigInt)` (scale lives in the schema as `Decimal(P,S)`)
+- `BigInt(BigInt)`
+- `BigUInt(BigUint)`
 
-This means the reference implementation is useful for validating
-envelope layout, schema descriptors, data ordering, and canonical byte
-rules, while the full unbounded numeric semantics described by the draft
-remain outside the current value model.
+Scale remains `i64` in the public API for practical range; a scale
+encoded as an SVarInt that overflows `i64` is rejected as
+`VarintOverflow`. Coefficient and integer magnitudes use bigint
+varint helpers only on those four value paths; lengths, field ids, and
+counts still use the `u64` varint path.
+
+Default resource limits (overridable via `Limits`):
+
+- `max_bigint_bytes`: 1024 — maximum wire length of a single bigint
+  UVarInt/SVarInt payload
+- `max_decimal_digits`: 10_000 — maximum base-10 digit count for
+  `Decimal` / `Decimal(P,S)` coefficients (`Decimal(P,S)` is also
+  capped by schema precision `P`)
+
+Values that fit in the historical `i64`/`u64` ranges still produce the
+same wire bytes as before, so published draft flat-record test vectors
+are unchanged.
 
 The Rust API exposes one official helper profile:
 
@@ -67,7 +83,6 @@ observed collisions.
 
 - `TPACK`/`TPAK` magic stays unchanged in code or vectors; the current
   draft and implementation both use ASCII `TPAK`
-- no rewrite of `BigInt`, `BigUInt`, or decimal backing types
 - no changes to map sentinels, union tagging, field flags, or the core
-  type model
-- no large `serde` or native API redesign
+  type model beyond numeric magnitude backing types
+- no full decimal arithmetic API surface

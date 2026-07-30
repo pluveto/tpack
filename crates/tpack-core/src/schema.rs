@@ -265,8 +265,12 @@ pub struct CalendarInterval {
     pub nanos: i64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// Arbitrary-precision decimal: `value = coefficient * 10^(-scale)`.
+///
+/// Scale stays `i64` for practical range; coefficient is unbounded at the model
+/// level and limited by decoder [`crate::Limits`].
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Decimal {
     pub scale: i64,
-    pub coefficient: i64,
+    pub coefficient: num_bigint::BigInt,
 }

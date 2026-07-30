@@ -120,7 +120,7 @@ Internet-Draft                    TPACK                         May 2026
    11. Schema Evolution and Unknown Data . . . . . . . . . . . . . .  28
    12. Cached Schema Profile and Framing . . . . . . . . . . . . . .  29
    13. Implementation Status and Conformance Boundary  . . . . . . .  30
-   14. Test Vectors  . . . . . . . . . . . . . . . . . . . . . . . .  32
+   14. Test Vectors  . . . . . . . . . . . . . . . . . . . . . . . .  31
    15. Examples  . . . . . . . . . . . . . . . . . . . . . . . . . .  32
      15.1.  Flat Record with Decimal Values  . . . . . . . . . . . .  32
      15.2.  Nested Structure . . . . . . . . . . . . . . . . . . . .  33
@@ -1704,45 +1704,21 @@ Internet-Draft                    TPACK                         May 2026
    behavior is the default in the reference code.
 
    The specification data model defines Decimal, BigInt, and BigUInt as
-   arbitrary-precision types.  The current Rust implementation does not
-   yet expose arbitrary-precision semantics at that boundary.  Its
-   public value model currently uses signed or unsigned 64-bit host
-   integers for:
-
-   *  Decimal scale and coefficient.
-
-   *  Decimal(P,S) coefficient.
-
-   *  BigInt values.
-
-   *  BigUInt values.
-
-   Consequently, the present Rust implementation is a conforming
-   reference for TPACK version 1 only for the subset of messages whose
-   values fit within those 64-bit ranges.  Inputs that require larger
-   magnitudes are outside the current reference boundary and are
-   rejected during varint decoding or cannot be represented by the
-   implementation's exposed value API.  This limitation does not imply
-   any wire-format change; a future implementation can support larger
-   magnitudes while remaining wire compatible.
-
-
-
-
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 31]
-
-Internet-Draft                    TPACK                         May 2026
-
+   arbitrary-precision types.  The Rust reference implementation exposes
+   that model with num-bigint magnitudes for Decimal coefficients,
+   Decimal(P,S) coefficients, BigInt, and BigUInt.  Decimal scale
+   remains an i64 in the public API for practical range; a scale on the
+   wire that overflows i64 is rejected.  The implementation imposes
+   explicit decoder limits (default max bigint varint wire length and
+   max decimal digit count) as permitted by this specification, and
+   rejects values that exceed those limits.  Magnitudes that fit the
+   historical 64-bit host ranges remain wire-compatible with the
+   published draft-00 test vectors.
 
    Reviewers should therefore treat the Rust codebase as strong evidence
    for the envelope layout, schema encoding, validation rules,
-   canonicalization behavior, and cached-schema semantics, but not yet
-   as a complete executable oracle for every arbitrary-precision case
-   allowed by the abstract data model.
+   canonicalization behavior, cached-schema semantics, and the
+   arbitrary-precision numeric value paths within the configured limits.
 
 14.  Test Vectors
 
@@ -1753,6 +1729,14 @@ Internet-Draft                    TPACK                         May 2026
 
    *  The FullSchema, FullSchemaWithId, and SchemaRef encodings in the
       Examples section.
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 31]
+
+Internet-Draft                    TPACK                         May 2026
+
 
    *  Canonical Map ordering and duplicate-key rejection.
 
@@ -1782,18 +1766,6 @@ Internet-Draft                    TPACK                         May 2026
 
    with the following value:
 
-
-
-
-
-
-
-
-Zhang                   Expires 17 November 2026               [Page 32]
-
-Internet-Draft                    TPACK                         May 2026
-
-
      {
        id:    "prod_001",
        price: 299.9900,
@@ -1807,6 +1779,20 @@ Internet-Draft                    TPACK                         May 2026
    carries its own scale 3 and coefficient 13725.
 
    Hexadecimal encoding:
+
+
+
+
+
+
+
+
+
+
+Zhang                   Expires 17 November 2026               [Page 32]
+
+Internet-Draft                    TPACK                         May 2026
+
 
      54 50 41 4B 01
 
@@ -1843,13 +1829,6 @@ Internet-Draft                    TPACK                         May 2026
        }
      }
 
-
-
-Zhang                   Expires 17 November 2026               [Page 33]
-
-Internet-Draft                    TPACK                         May 2026
-
-
    Its schema descriptor is:
 
      20 02
@@ -1863,6 +1842,13 @@ Internet-Draft                    TPACK                         May 2026
    The nested Struct is encoded recursively inside the schema.  In the
    data block, the nested Struct value is encoded as the concatenation
    of city, street, and zip values.  It does not repeat field names.
+
+
+
+Zhang                   Expires 17 November 2026               [Page 33]
+
+Internet-Draft                    TPACK                         May 2026
+
 
 15.3.  Union Value
 
@@ -1898,6 +1884,20 @@ Internet-Draft                    TPACK                         May 2026
 
    The flat record from Section 15.1 can also be sent as
    FullSchemaWithId with SchemaId "example.record.v1":
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

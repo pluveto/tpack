@@ -17,6 +17,7 @@ rmp-serde = "1.3"
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+stats_alloc = "0.1"
 
 [[bench]]
 name = "codec_bench"
@@ -25,3 +26,11 @@ harness = false
 [[example]]
 name = "size_report"
 path = "examples/size_report.rs"
+
+[[example]]
+name = "matrix_report"
+path = "examples/matrix_report.rs"
+
+[[example]]
+name = "perf_smoke"
+path = "examples/perf_smoke.rs"

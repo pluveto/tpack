@@ -1,7 +1,8 @@
-//! One-off timing: naive FullSchema encode vs PreparedSchema reuse.
+//! Quick prepared vs naive FullSchema encode timing.
 use std::time::Instant;
+
 use tpack::{Encoder, EnvelopeMode, PreparedSchema, encode_message};
-use tpack_bench::{Scenario, SteadyEncoder, tpack_schema, tpack_value};
+use tpack_bench::{Format, Scenario, SteadyEncoder, tpack_schema, tpack_value};
 
 fn main() {
     let scenario = Scenario::FlatRecord;
@@ -26,7 +27,7 @@ fn main() {
     }
     let prepared_fs = t1.elapsed();
 
-    let mut steady = SteadyEncoder::new(scenario, tpack_bench::Format::TpackSchemaRef).unwrap();
+    let mut steady = SteadyEncoder::for_scenario(scenario, Format::TpackSchemaRef).unwrap();
     let t2 = Instant::now();
     for _ in 0..n {
         std::hint::black_box(steady.encode_in_place().unwrap());
@@ -36,15 +37,15 @@ fn main() {
     println!("iters={n}");
     println!(
         "naive FullSchema encode_message: {naive:?} ({:.1} ns/op)",
-        naive.as_secs_f64() * 1e9 / n as f64
+        naive.as_secs_f64() * 1e9 / f64::from(n)
     );
     println!(
         "prepared FullSchema + reuse:     {prepared_fs:?} ({:.1} ns/op)",
-        prepared_fs.as_secs_f64() * 1e9 / n as f64
+        prepared_fs.as_secs_f64() * 1e9 / f64::from(n)
     );
     println!(
         "SchemaRef SteadyEncoder:         {schemaref:?} ({:.1} ns/op)",
-        schemaref.as_secs_f64() * 1e9 / n as f64
+        schemaref.as_secs_f64() * 1e9 / f64::from(n)
     );
     println!(
         "prepared speedup vs naive FullSchema: {:.2}x",

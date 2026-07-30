@@ -1,12 +1,6 @@
-//! Criterion encode/decode throughput benches.
+//! Criterion microbenches (host-dependent; not in default CI).
 //!
-//! TPACK encode paths use [`tpack_bench::SteadyEncoder`] (PreparedSchema +
-//! buffer reuse). Competitors allocate per iteration as their one-shot APIs do.
-//!
-//! ```bash
-//! cargo bench -p tpack-bench
-//! cargo bench -p tpack-bench -- --quick
-//! ```
+//! Uses steady-state TPACK APIs (`SteadyEncoder`).
 
 use std::hint::black_box;
 
@@ -25,11 +19,11 @@ fn encode_benches(c: &mut Criterion) {
         for format in Format::ALL {
             let id = format.label();
             if format.is_tpack() {
-                let mut steady = SteadyEncoder::new(scenario, format).expect("steady");
+                let mut steady = SteadyEncoder::for_scenario(scenario, format).expect("steady");
                 group.bench_function(id, |b| {
                     b.iter(|| {
-                        let bytes = steady.encode_in_place().expect("encode");
-                        black_box(bytes);
+                        let len = steady.encode_in_place().expect("encode").len();
+                        black_box(len);
                     });
                 });
             } else {
@@ -48,23 +42,17 @@ fn encode_benches(c: &mut Criterion) {
 fn decode_benches(c: &mut Criterion) {
     for scenario in Scenario::ALL {
         let mut group = c.benchmark_group(format!("decode/{}", scenario.name()));
-
         let encoded: Vec<(Format, Vec<u8>)> = Format::ALL
             .iter()
-            .map(|&format| {
-                let bytes = encode(scenario, format).expect("pre-encode");
-                (format, bytes)
-            })
+            .map(|&format| (format, encode(scenario, format).expect("pre-encode")))
             .collect();
-
         let sample_len = encoded
             .iter()
             .find(|(f, _)| *f == Format::Json)
             .map(|(_, b)| b.len() as u64)
             .unwrap_or(64);
         group.throughput(Throughput::Bytes(sample_len));
-
-        let (registry, _schema, _id) = preload_registry(scenario);
+        let (registry, _, _) = preload_registry(scenario);
 
         for (format, bytes) in &encoded {
             let label = format.label();
@@ -73,10 +61,11 @@ fn decode_benches(c: &mut Criterion) {
                     group.bench_function(label, |b| {
                         b.iter(|| {
                             let mut decoder = Decoder::new(black_box(bytes.as_slice()));
-                            let msg = decoder
-                                .decode_message_with_registry(&registry)
-                                .expect("decode SchemaRef");
-                            black_box(msg);
+                            black_box(
+                                decoder
+                                    .decode_message_with_registry(&registry)
+                                    .expect("decode"),
+                            );
                         });
                     });
                 }
@@ -84,8 +73,7 @@ fn decode_benches(c: &mut Criterion) {
                     group.bench_function(label, |b| {
                         b.iter(|| {
                             let mut decoder = Decoder::new(black_box(bytes.as_slice()));
-                            let msg = decoder.decode_message().expect("decode tpack");
-                            black_box(msg);
+                            black_box(decoder.decode_message().expect("decode"));
                         });
                     });
                 }
@@ -93,8 +81,7 @@ fn decode_benches(c: &mut Criterion) {
                     group.bench_function(label, |b| {
                         b.iter(|| {
                             let v: tpack_bench::SerdePayload =
-                                serde_json::from_slice(black_box(bytes.as_slice()))
-                                    .expect("decode json");
+                                serde_json::from_slice(black_box(bytes.as_slice())).expect("json");
                             black_box(v);
                         });
                     });
@@ -103,8 +90,7 @@ fn decode_benches(c: &mut Criterion) {
                     group.bench_function(label, |b| {
                         b.iter(|| {
                             let v: tpack_bench::SerdePayload =
-                                ciborium::from_reader(black_box(bytes.as_slice()))
-                                    .expect("decode cbor");
+                                ciborium::from_reader(black_box(bytes.as_slice())).expect("cbor");
                             black_box(v);
                         });
                     });
@@ -113,8 +99,7 @@ fn decode_benches(c: &mut Criterion) {
                     group.bench_function(label, |b| {
                         b.iter(|| {
                             let v: tpack_bench::SerdePayload =
-                                rmp_serde::from_slice(black_box(bytes.as_slice()))
-                                    .expect("decode msgpack");
+                                rmp_serde::from_slice(black_box(bytes.as_slice())).expect("mp");
                             black_box(v);
                         });
                     });
@@ -125,38 +110,47 @@ fn decode_benches(c: &mut Criterion) {
     }
 }
 
-fn hot_flat_record(c: &mut Criterion) {
-    // Microbench: SchemaRef encode/decode with full steady-state setup.
+fn hot_and_naive(c: &mut Criterion) {
     let scenario = Scenario::FlatRecord;
-    let mut group = c.benchmark_group("hot/flat_record");
-    let mut steady = SteadyEncoder::new(scenario, Format::TpackSchemaRef).expect("steady");
-    let bytes = steady.encode_once().expect("encode");
+    let mut group = c.benchmark_group("paths/flat_record");
+
+    let mut steady = SteadyEncoder::for_scenario(scenario, Format::TpackSchemaRef).expect("s");
+    let bytes = steady.encode_once().expect("e");
     let (registry, _, _) = preload_registry(scenario);
 
-    group.bench_function("tpack-schemaref/encode", |b| {
+    group.bench_function("schemaref/encode/warm", |b| {
+        b.iter(|| black_box(steady.encode_in_place().expect("e").len()));
+    });
+    group.bench_function("schemaref/decode/warm", |b| {
         b.iter(|| {
-            let out = steady.encode_in_place().expect("encode");
-            black_box(out);
+            let mut d = Decoder::new(black_box(bytes.as_slice()));
+            black_box(d.decode_message_with_registry(&registry).expect("d"));
         });
     });
-    group.bench_function("tpack-schemaref/decode", |b| {
+
+    let schema = tpack_bench::tpack_schema(scenario);
+    let value = tpack_bench::tpack_value(scenario);
+    group.bench_function("fullschema/encode/naive", |b| {
         b.iter(|| {
-            let mut decoder = Decoder::new(black_box(bytes.as_slice()));
-            let msg = decoder
-                .decode_message_with_registry(&registry)
-                .expect("decode");
-            black_box(msg);
+            black_box(
+                tpack::encode_message(&schema, &value, tpack::EnvelopeMode::FullSchema, None)
+                    .expect("e")
+                    .len(),
+            );
         });
     });
+    let mut prepared = SteadyEncoder::for_scenario(scenario, Format::TpackFullSchema).expect("p");
+    group.bench_function("fullschema/encode/warm-prepared", |b| {
+        b.iter(|| black_box(prepared.encode_in_place().expect("e").len()));
+    });
+
+    let payload = serde_payload(scenario);
     group.bench_function("json/encode", |b| {
-        let payload = serde_payload(scenario);
-        b.iter(|| {
-            let out = serde_json::to_vec(black_box(&payload)).expect("json");
-            black_box(out);
-        });
+        b.iter(|| black_box(serde_json::to_vec(black_box(&payload)).expect("j")));
     });
+
     group.finish();
 }
 
-criterion_group!(benches, encode_benches, decode_benches, hot_flat_record);
+criterion_group!(benches, encode_benches, decode_benches, hot_and_naive);
 criterion_main!(benches);

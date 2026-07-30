@@ -1,18 +1,14 @@
-//! Tiny prepared-vs-naive check (not the full matrix).
 use tpack_bench::{flat_record, prepared_speedup};
 
 fn main() {
-    let w = flat_record();
-    let s = prepared_speedup(&w, 200_000).expect("speedup");
-    println!("naive FullSchema:     {:.1} ns/op", s.naive_ns);
+    let (naive, prep, sref) = prepared_speedup(&flat_record(), 200_000).expect("ok");
+    println!("naive FullSchema:    {naive:.1} ns/op");
     println!(
-        "prepared FullSchema:  {:.1} ns/op ({:.2}×)",
-        s.prepared_ns,
-        s.naive_ns / s.prepared_ns
+        "prepared FullSchema: {prep:.1} ns/op ({:.2}×)",
+        naive / prep
     );
     println!(
-        "SchemaRef warm:       {:.1} ns/op ({:.2}×)",
-        s.schemaref_ns,
-        s.naive_ns / s.schemaref_ns
+        "SchemaRef warm:      {sref:.1} ns/op ({:.2}×)",
+        naive / sref
     );
 }

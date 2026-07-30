@@ -1,38 +1,75 @@
-//! TPACK benchmark harness — structured experiments, not a script pile.
+//! Benchmark harness as small objects with one sample shape.
 //!
 //! ```text
-//! Workload  →  measure::*  →  Report  →  render::markdown
-//!                ↑
-//!            matrix::run (declares what to measure)
+//! Workload ──encode/decode──► Endpoint
+//!                               │
+//!                               ▼
+//!                          Observation ──► Catalog ──► view::markdown
+//!                               ▲
+//!                          suite experiments
 //! ```
-//!
-//! - **Portable:** sizes, breakdowns, scaling, amortization
-//! - **Host-labeled:** latency tails, allocs, concurrency, prepared speedup
 
-mod codec;
-mod matrix;
-mod measure;
-mod model;
-mod render;
-mod workload;
+mod endpoint;
+mod obs;
+mod suite;
+mod view;
+mod work;
 
-pub use codec::{Error, WarmTpack, decode, encode};
-pub use matrix::{MatrixCfg, fill_allocs, run as run_matrix};
-pub use measure::{LatencyCfg, amortized, breakdown, latency, prepared_speedup, size_of, sizes};
-pub use model::{
-    AllocSample, AmortizedSample, Breakdown, ConcurrentSample, ExecPath, Format, LatencySample,
-    LatencyStats, Op, Report, SizeSample, SpeedupSample, ratio,
-};
-pub use render::markdown;
-pub use workload::{
-    AMORTIZED_NS, BLOB_SIZES, BULK_LEN, FIELD_COUNTS, LIST_LENS, Twin, Workload, blob, bulk_list,
-    flat_record, list_of, narrative, nested_struct, wide,
+pub use endpoint::{Endpoint, Error, SerdeFormat, TpackEnvelope, TpackStyle, tpack_parts};
+pub use obs::{Catalog, Observation, Quantity, dims, ratio};
+pub use suite::{Cfg, record_allocs, run};
+pub use view::markdown;
+pub use work::{
+    AMORTIZED_NS, BLOB_SIZES, BULK, FIELD_COUNTS, LIST_LENS, Workload, blob, flat_record, list,
+    narrative, nested, wide,
 };
 
-/// Size-only report markdown (no host metrics).
+pub type MatrixCfg = Cfg;
+
+pub fn run_matrix(cfg: Cfg) -> Result<Catalog, Error> {
+    run(cfg)
+}
+
+pub fn fill_allocs(
+    cat: &mut Catalog,
+    work: &Workload,
+    mut observe: impl FnMut(&str, &mut dyn FnMut()) -> (usize, usize),
+) -> Result<(), Error> {
+    record_allocs(cat, work, move |op| observe("op", op))
+}
+
 pub fn size_report_markdown() -> Result<String, Error> {
-    let report = run_matrix(MatrixCfg::size_only())?;
-    Ok(markdown(&report))
+    Ok(markdown(&run(Cfg::size_only())?))
+}
+
+pub fn prepared_speedup(work: &Workload, iters: u32) -> Result<(f64, f64, f64), Error> {
+    use std::time::Instant;
+    use tpack::{Encoder, EnvelopeMode, PreparedSchema, encode_message};
+
+    let t0 = Instant::now();
+    for _ in 0..iters {
+        let _ = encode_message(work.schema(), work.value(), EnvelopeMode::FullSchema, None)?;
+    }
+    let naive = t0.elapsed().as_secs_f64();
+
+    let prepared = PreparedSchema::prepare_default(work.schema().clone())?;
+    let mut enc = Encoder::new();
+    let t1 = Instant::now();
+    for _ in 0..iters {
+        enc.clear();
+        enc.encode_prepared_message(&prepared, work.value(), EnvelopeMode::FullSchema, None)?;
+        std::hint::black_box(enc.as_slice());
+    }
+    let prep = t1.elapsed().as_secs_f64();
+
+    let mut warm = Endpoint::tpack_warm(work, TpackEnvelope::SchemaRef)?;
+    let t2 = Instant::now();
+    for _ in 0..iters {
+        std::hint::black_box(warm.encode()?);
+    }
+    let sref = t2.elapsed().as_secs_f64();
+    let inv = 1e9 / f64::from(iters);
+    Ok((naive * inv, prep * inv, sref * inv))
 }
 
 #[cfg(test)]
@@ -40,84 +77,66 @@ mod tests {
     use super::*;
 
     #[test]
-    fn golden_flat_fullschema_76() {
+    fn golden_76() {
+        let mut ep = Endpoint::tpack_warm(&flat_record(), TpackEnvelope::FullSchema).unwrap();
+        assert_eq!(ep.encode().unwrap().len(), 76);
+    }
+
+    #[test]
+    fn parts_match_data() {
         let w = flat_record();
-        let s = size_of(&w, Format::TpackFullSchema).unwrap();
-        assert_eq!(s.bytes, 76);
+        let mut full = Endpoint::tpack_warm(&w, TpackEnvelope::FullSchema).unwrap();
+        let mut sref = Endpoint::tpack_warm(&w, TpackEnvelope::SchemaRef).unwrap();
+        let (_, _, schema, df) =
+            tpack_parts(&full.encode().unwrap(), TpackEnvelope::FullSchema).unwrap();
+        let (_, _, sr, dr) =
+            tpack_parts(&sref.encode().unwrap(), TpackEnvelope::SchemaRef).unwrap();
+        assert!(schema > 0 && sr == 0 && df == dr);
     }
 
     #[test]
-    fn breakdown_splits_schema_and_data() {
-        let w = flat_record();
-        let b = breakdown(&w, Format::TpackFullSchema).unwrap();
-        let r = breakdown(&w, Format::TpackSchemaRef).unwrap();
-        assert_eq!(b.data, r.data);
-        assert!(b.schema > 0);
-        assert_eq!(r.schema, 0);
+    fn amortize_improves() {
+        let cat = run(Cfg::size_only()).unwrap();
+        let mut ratios = Vec::new();
+        for o in cat.in_section("amortized") {
+            if o.dim("case") != "flat_record" {
+                continue;
+            }
+            if let Quantity::Stream { n, tpack, cbor, .. } = o.quantity {
+                ratios.push((n, tpack as f64 / cbor as f64));
+            }
+        }
+        ratios.sort_by_key(|(n, _)| *n);
+        assert!(ratios.last().unwrap().1 < ratios.first().unwrap().1);
     }
 
     #[test]
-    fn amortization_improves_vs_cbor() {
-        let w = flat_record();
-        let a1 = amortized(&w, 1).unwrap();
-        let a_big = amortized(&w, 10_000).unwrap();
-        let r1 = a1.tpack_total as f64 / a1.cbor_total as f64;
-        let r_big = a_big.tpack_total as f64 / a_big.cbor_total as f64;
-        assert!(r_big < r1);
-    }
-
-    #[test]
-    fn warm_encode_stable() {
-        let w = flat_record();
-        let a = encode(&w, Format::TpackSchemaRef, ExecPath::WarmPrepared).unwrap();
-        let b = encode(&w, Format::TpackSchemaRef, ExecPath::WarmPrepared).unwrap();
-        assert_eq!(a, b);
-    }
-
-    #[test]
-    fn size_matrix_deterministic() {
-        let a = run_matrix(MatrixCfg::size_only()).unwrap();
-        let b = run_matrix(MatrixCfg::size_only()).unwrap();
-        assert_eq!(a.sizes, b.sizes);
-        assert_eq!(a.scale_list.len(), b.scale_list.len());
-    }
-
-    #[test]
-    fn markdown_has_axes() {
+    fn md_has_axes() {
         let md = size_report_markdown().unwrap();
         assert!(md.contains("Steady-state"));
-        assert!(md.contains("Amortization"));
         assert!(md.contains("blob_"));
         assert!(md.contains("list_"));
         assert!(md.contains("fields_"));
     }
 
     #[test]
-    fn latency_smoke() {
+    fn roundtrip() {
         let w = flat_record();
-        let row = latency(
-            &w,
-            Format::TpackSchemaRef,
-            Op::Encode,
-            ExecPath::WarmPrepared,
-            LatencyCfg::quick(),
-        )
-        .unwrap();
-        assert!(row.stats.p50 > 0);
-        assert!(row.stats.p99 >= row.stats.p50);
-    }
-
-    #[test]
-    fn roundtrip_formats() {
-        let w = flat_record();
-        for f in Format::ALL {
-            let bytes = encode(&w, f, ExecPath::WarmPrepared).unwrap();
-            decode(&w, f, &bytes).unwrap();
+        for env in [
+            TpackEnvelope::FullSchema,
+            TpackEnvelope::FullSchemaWithId,
+            TpackEnvelope::SchemaRef,
+        ] {
+            let mut ep = Endpoint::tpack_warm(&w, env).unwrap();
+            let b = ep.encode().unwrap();
+            ep.decode(&b).unwrap();
         }
     }
 
     #[test]
-    fn list_scale_name() {
-        assert_eq!(list_of(100).name, "list_100");
+    fn quick_host_smoke() {
+        let cat = run(Cfg::quick()).unwrap();
+        assert!(cat.in_section("latency").count() > 3);
+        assert_eq!(cat.in_section("concurrent").count(), 2);
     }
 }

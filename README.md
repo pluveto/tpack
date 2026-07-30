@@ -106,8 +106,10 @@ cargo bench -p tpack-bench -- --quick   # Criterion; not in default CI
 ```
 
 Hot encode paths must use `PreparedSchema` + a reused `Encoder`
-(`SteadyEncoder` in the harness). Do not quote naive `encode_message`
-FullSchema as a hot-path number.
+(the harness models this as a warm `Endpoint`). Do not quote naive
+`encode_message` FullSchema as a hot-path number.
+
+Harness shape: `Workload` → `Endpoint` → `Observation` → `Catalog` → Markdown.
 
 ## Internet-Draft
 

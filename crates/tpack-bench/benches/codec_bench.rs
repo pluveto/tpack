@@ -1,49 +1,35 @@
-//! Criterion microbenches — same WarmTpack path as the matrix.
 use std::hint::black_box;
 
 use criterion::{Criterion, criterion_group, criterion_main};
-use tpack_bench::{ExecPath, Format, WarmTpack, encode, flat_record, narrative};
+use tpack_bench::{Endpoint, SerdeFormat, TpackEnvelope, flat_record, narrative};
 
-fn hot_paths(c: &mut Criterion) {
-    let mut group = c.benchmark_group("hot");
+fn hot(c: &mut Criterion) {
+    let mut g = c.benchmark_group("hot");
     for work in narrative() {
-        let mut warm = WarmTpack::new(&work, Format::TpackSchemaRef).expect("warm");
-        let bytes = warm.encode_vec().expect("e");
-        group.bench_function(format!("{}/schemaref/encode", work.name), |b| {
-            b.iter(|| black_box(warm.encode().expect("e").len()));
+        let mut ep = Endpoint::tpack_warm(&work, TpackEnvelope::SchemaRef).unwrap();
+        let bytes = ep.encode().unwrap();
+        g.bench_function(format!("{}/schemaref/encode", work.name()), |b| {
+            b.iter(|| black_box(ep.encode().unwrap().len()));
         });
-        group.bench_function(format!("{}/schemaref/decode", work.name), |b| {
-            b.iter(|| {
-                warm.decode(black_box(bytes.as_slice())).expect("d");
-            });
+        g.bench_function(format!("{}/schemaref/decode", work.name()), |b| {
+            b.iter(|| ep.decode(black_box(bytes.as_slice())).unwrap());
         });
-        group.bench_function(format!("{}/json/encode", work.name), |b| {
-            b.iter(|| {
-                black_box(
-                    encode(&work, Format::Json, ExecPath::NaiveMessage)
-                        .expect("j")
-                        .len(),
-                );
-            });
+        let mut json = Endpoint::serde(&work, SerdeFormat::Json);
+        g.bench_function(format!("{}/json/encode", work.name()), |b| {
+            b.iter(|| black_box(json.encode().unwrap().len()));
         });
     }
-
     let flat = flat_record();
-    group.bench_function("flat/fullschema/naive", |b| {
-        b.iter(|| {
-            black_box(
-                encode(&flat, Format::TpackFullSchema, ExecPath::NaiveMessage)
-                    .expect("n")
-                    .len(),
-            );
-        });
+    let mut naive = Endpoint::tpack_naive(&flat, TpackEnvelope::FullSchema);
+    g.bench_function("flat/fullschema/naive", |b| {
+        b.iter(|| black_box(naive.encode().unwrap().len()));
     });
-    let mut prep = WarmTpack::new(&flat, Format::TpackFullSchema).expect("p");
-    group.bench_function("flat/fullschema/warm", |b| {
-        b.iter(|| black_box(prep.encode().expect("e").len()));
+    let mut warm = Endpoint::tpack_warm(&flat, TpackEnvelope::FullSchema).unwrap();
+    g.bench_function("flat/fullschema/warm", |b| {
+        b.iter(|| black_box(warm.encode().unwrap().len()));
     });
-    group.finish();
+    g.finish();
 }
 
-criterion_group!(benches, hot_paths);
+criterion_group!(benches, hot);
 criterion_main!(benches);

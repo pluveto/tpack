@@ -1,4 +1,3 @@
-//! Portable size matrix only.
 use std::{env, fs, path::PathBuf, process};
 use tpack_bench::size_report_markdown;
 
@@ -22,6 +21,6 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     }
     fs::write(&out, &md)?;
     print!("{md}");
-    eprintln!("wrote {} (sizes only)", out.display());
+    eprintln!("wrote {}", out.display());
     Ok(())
 }

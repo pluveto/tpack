@@ -1,38 +1,30 @@
-//! Full matrix: portable sizes + host latency/alloc/concurrency.
 use std::{alloc::System, env, fs, path::PathBuf, process};
 
 use stats_alloc::{Region, StatsAlloc};
-use tpack_bench::{MatrixCfg, fill_allocs, flat_record, markdown, run_matrix};
+use tpack_bench::{Cfg, fill_allocs, flat_record, markdown, run};
 
 #[global_allocator]
 static GLOBAL: StatsAlloc<System> = StatsAlloc::system();
 
 fn main() {
-    if let Err(e) = run() {
+    if let Err(e) = run_main() {
         eprintln!("matrix_report: {e}");
         process::exit(1);
     }
 }
 
-fn run() -> Result<(), Box<dyn std::error::Error>> {
+fn run_main() -> Result<(), Box<dyn std::error::Error>> {
     let quick = env::args().any(|a| a == "--quick");
-    let cfg = if quick {
-        MatrixCfg::quick()
-    } else {
-        MatrixCfg::report()
-    };
-
-    eprintln!("running matrix (quick={quick})…");
-    let mut report = run_matrix(cfg)?;
-
-    fill_allocs(&mut report, &flat_record(), |_label, op| {
+    let cfg = if quick { Cfg::quick() } else { Cfg::report() };
+    eprintln!("suite running (quick={quick})…");
+    let mut cat = run(cfg)?;
+    fill_allocs(&mut cat, &flat_record(), |_label, op| {
         let region = Region::new(&GLOBAL);
         op();
         let c = region.change();
         (c.allocations, c.bytes_allocated)
     })?;
-
-    let md = markdown(&report);
+    let md = markdown(&cat);
     let out = env::args()
         .filter(|a| a != "--quick")
         .nth(1)

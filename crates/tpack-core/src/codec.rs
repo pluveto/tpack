@@ -834,6 +834,46 @@ impl<'de> Decoder<'de> {
     }
 }
 
+/// Schema AST plus pre-encoded canonical descriptor bytes.
+///
+/// Build once with [`PreparedSchema::prepare`] and reuse across many
+/// [`Encoder::encode_prepared_message`] calls so FullSchema /
+/// FullSchemaWithId paths do not re-walk the schema AST on every message.
+///
+/// The stored bytes are produced with the `EncodeOptions` passed to
+/// [`prepare`](PreparedSchema::prepare). Prefer matching those options
+/// (especially limits) on the `Encoder` used for subsequent messages.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PreparedSchema {
+    schema: Schema,
+    bytes: Arc<[u8]>,
+}
+
+impl PreparedSchema {
+    /// Validate and encode `schema`, returning a reusable handle.
+    pub fn prepare(schema: Schema, options: EncodeOptions) -> Result<Self> {
+        let bytes = encode::schema(&schema, options)?;
+        Ok(Self {
+            schema,
+            bytes: Arc::from(bytes),
+        })
+    }
+
+    /// Validate and encode `schema` with default encode options.
+    pub fn prepare_default(schema: Schema) -> Result<Self> {
+        Self::prepare(schema, EncodeOptions::default())
+    }
+
+    pub fn schema(&self) -> &Schema {
+        &self.schema
+    }
+
+    /// Canonical TypeDescriptor bytes (same as [`encode_schema`]).
+    pub fn encoded_bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+}
+
 pub struct Encoder {
     out: Vec<u8>,
     options: EncodeOptions,
@@ -851,10 +891,36 @@ impl Encoder {
         }
     }
 
+    /// Clear the output buffer, retaining capacity for reuse.
+    pub fn clear(&mut self) {
+        self.out.clear();
+    }
+
+    /// Borrow the bytes written so far.
+    pub fn as_slice(&self) -> &[u8] {
+        &self.out
+    }
+
+    /// Consume the encoder and return the output buffer.
     pub fn into_vec(self) -> Vec<u8> {
         self.out
     }
 
+    /// Take the output buffer, leaving the encoder empty (capacity retained
+    /// on the returned `Vec` only; encoder capacity is reset).
+    pub fn take_vec(&mut self) -> Vec<u8> {
+        core::mem::take(&mut self.out)
+    }
+
+    /// Encode a message, appending to the internal buffer.
+    ///
+    /// Prefer [`clear`](Self::clear) between messages when reusing the
+    /// encoder. For steady-state FullSchema / FullSchemaWithId loops, use
+    /// [`encode_prepared_message`](Self::encode_prepared_message) so the
+    /// schema is not re-encoded every time.
+    ///
+    /// `SchemaRef` does **not** serialize the schema descriptor (only the
+    /// schema id and value), avoiding a wasted `encode_schema` walk.
     pub fn encode_message(
         &mut self,
         schema: &Schema,
@@ -862,35 +928,52 @@ impl Encoder {
         mode: EnvelopeMode,
         schema_id: Option<&[u8]>,
     ) -> Result<()> {
-        let schema_bytes = encode::schema(schema, self.options)?;
-        self.out.extend_from_slice(&MAGIC);
-        self.out.push(VERSION);
-        self.out.push(mode.tag());
         match mode {
-            EnvelopeMode::FullSchema => {
-                wire::write_uvarint(&mut self.out, schema_bytes.len() as u64);
-                self.out.extend_from_slice(&schema_bytes);
-            }
-            EnvelopeMode::FullSchemaWithId => {
-                let schema_id = schema_id.unwrap_or(&[]);
-                if schema_id.len() > self.options.limits.max_schema_id_len {
-                    return Err(Error::new(ErrorKind::InvalidSchemaId));
-                }
-                wire::write_uvarint(&mut self.out, schema_id.len() as u64);
-                self.out.extend_from_slice(schema_id);
-                wire::write_uvarint(&mut self.out, schema_bytes.len() as u64);
-                self.out.extend_from_slice(&schema_bytes);
-            }
             EnvelopeMode::SchemaRef => {
-                let schema_id = schema_id.ok_or(Error::new(ErrorKind::InvalidSchemaId))?;
-                if schema_id.is_empty() || schema_id.len() > self.options.limits.max_schema_id_len {
-                    return Err(Error::new(ErrorKind::InvalidSchemaId));
+                self.write_header(mode)?;
+                self.write_schema_id(schema_id, /*required*/ true)?;
+            }
+            EnvelopeMode::FullSchema | EnvelopeMode::FullSchemaWithId => {
+                let schema_bytes = encode::schema(schema, self.options)?;
+                self.write_header(mode)?;
+                if matches!(mode, EnvelopeMode::FullSchemaWithId) {
+                    self.write_schema_id(schema_id, /*required*/ false)?;
                 }
-                wire::write_uvarint(&mut self.out, schema_id.len() as u64);
-                self.out.extend_from_slice(schema_id);
+                wire::write_uvarint(&mut self.out, schema_bytes.len() as u64);
+                self.out.extend_from_slice(&schema_bytes);
             }
         }
         encode::ValueEncoder::new(&mut self.out, self.options).write_value(&schema.root, value)?;
+        Ok(())
+    }
+
+    /// Encode using precomputed schema descriptor bytes from [`PreparedSchema`].
+    ///
+    /// Wire output matches [`encode_message`] for the same schema/value/mode
+    /// when `prepared` was built with compatible options.
+    pub fn encode_prepared_message(
+        &mut self,
+        prepared: &PreparedSchema,
+        value: &TpackValue<'_>,
+        mode: EnvelopeMode,
+        schema_id: Option<&[u8]>,
+    ) -> Result<()> {
+        match mode {
+            EnvelopeMode::SchemaRef => {
+                self.write_header(mode)?;
+                self.write_schema_id(schema_id, /*required*/ true)?;
+            }
+            EnvelopeMode::FullSchema | EnvelopeMode::FullSchemaWithId => {
+                self.write_header(mode)?;
+                if matches!(mode, EnvelopeMode::FullSchemaWithId) {
+                    self.write_schema_id(schema_id, /*required*/ false)?;
+                }
+                wire::write_uvarint(&mut self.out, prepared.bytes.len() as u64);
+                self.out.extend_from_slice(&prepared.bytes);
+            }
+        }
+        encode::ValueEncoder::new(&mut self.out, self.options)
+            .write_value(&prepared.schema.root, value)?;
         Ok(())
     }
 
@@ -902,6 +985,30 @@ impl Encoder {
 
     pub fn encode_value(&mut self, schema: &Schema, value: &TpackValue<'_>) -> Result<()> {
         encode::ValueEncoder::new(&mut self.out, self.options).write_value(&schema.root, value)
+    }
+
+    fn write_header(&mut self, mode: EnvelopeMode) -> Result<()> {
+        self.out.extend_from_slice(&MAGIC);
+        self.out.push(VERSION);
+        self.out.push(mode.tag());
+        Ok(())
+    }
+
+    fn write_schema_id(&mut self, schema_id: Option<&[u8]>, required: bool) -> Result<()> {
+        let schema_id = match schema_id {
+            Some(id) => id,
+            None if required => return Err(Error::new(ErrorKind::InvalidSchemaId)),
+            None => &[],
+        };
+        if required && schema_id.is_empty() {
+            return Err(Error::new(ErrorKind::InvalidSchemaId));
+        }
+        if schema_id.len() > self.options.limits.max_schema_id_len {
+            return Err(Error::new(ErrorKind::InvalidSchemaId));
+        }
+        wire::write_uvarint(&mut self.out, schema_id.len() as u64);
+        self.out.extend_from_slice(schema_id);
+        Ok(())
     }
 }
 
@@ -923,6 +1030,18 @@ pub fn encode_message(
 ) -> Result<Vec<u8>> {
     let mut encoder = Encoder::new();
     encoder.encode_message(schema, value, mode, schema_id)?;
+    Ok(encoder.into_vec())
+}
+
+/// Encode a message using a [`PreparedSchema`] (schema bytes not recomputed).
+pub fn encode_prepared_message(
+    prepared: &PreparedSchema,
+    value: &TpackValue<'_>,
+    mode: EnvelopeMode,
+    schema_id: Option<&[u8]>,
+) -> Result<Vec<u8>> {
+    let mut encoder = Encoder::new();
+    encoder.encode_prepared_message(prepared, value, mode, schema_id)?;
     Ok(encoder.into_vec())
 }
 
@@ -1221,5 +1340,61 @@ mod tests {
             );
             assert_eq!(legacy, big, "wire mismatch for {sample}");
         }
+    }
+
+    #[test]
+    fn prepared_schema_matches_encode_message_for_all_envelope_modes() {
+        let schema = flat_schema();
+        let value = flat_value();
+        let prepared = PreparedSchema::prepare_default(schema.clone()).expect("prepare");
+        assert_eq!(
+            prepared.encoded_bytes(),
+            encode_schema(&schema).expect("encode_schema").as_slice()
+        );
+
+        let schema_id = b"example.record.v1";
+        for mode in [
+            EnvelopeMode::FullSchema,
+            EnvelopeMode::FullSchemaWithId,
+            EnvelopeMode::SchemaRef,
+        ] {
+            let id = match mode {
+                EnvelopeMode::FullSchema => None,
+                _ => Some(schema_id.as_slice()),
+            };
+            let naive = encode_message(&schema, &value, mode, id).expect("naive");
+            let prepared_bytes =
+                encode_prepared_message(&prepared, &value, mode, id).expect("prepared");
+            assert_eq!(naive, prepared_bytes, "mismatch for {mode:?}");
+
+            let mut reused = Encoder::new();
+            for _ in 0..3 {
+                reused.clear();
+                reused
+                    .encode_prepared_message(&prepared, &value, mode, id)
+                    .expect("reuse");
+                assert_eq!(reused.as_slice(), naive.as_slice());
+            }
+        }
+    }
+
+    #[test]
+    fn encoder_take_vec_and_clear_retain_reuse_semantics() {
+        let schema = flat_schema();
+        let value = flat_value();
+        let mut encoder = Encoder::new();
+        encoder
+            .encode_message(&schema, &value, EnvelopeMode::FullSchema, None)
+            .expect("encode");
+        let first = encoder.as_slice().to_vec();
+        let taken = encoder.take_vec();
+        assert_eq!(taken, first);
+        assert!(encoder.as_slice().is_empty());
+        encoder
+            .encode_message(&schema, &value, EnvelopeMode::FullSchema, None)
+            .expect("encode again");
+        assert_eq!(encoder.as_slice(), first.as_slice());
+        encoder.clear();
+        assert!(encoder.as_slice().is_empty());
     }
 }

@@ -14,6 +14,7 @@ The workspace is split by responsibility:
 - `tpack-macros`: procedural macros for native derive support
 - `tpack`: `std` facade, registry integration, and optional `serde` support
 - `tpack-cli`: command-line tooling for inspection, verification, and canonicalization
+- `tpack-bench`: internal size/throughput harness (`publish = false`; see `docs/benchmarks.md`)
 
 ## Wire Protocol v1
 
@@ -78,6 +79,20 @@ The current reference-implementation boundary is summarized in
 `docs/implementation-status.md`.
 
 Additional repository checks are defined in `deny.toml`, `typos.toml`, and the GitHub Actions workflows.
+
+## Benchmarks
+
+Size tables and methodology live in [`docs/benchmarks.md`](docs/benchmarks.md)
+(generated). Steady-state comparisons emphasize `SchemaRef` and amortized
+multi-message streams; FullSchema rows are cold/bootstrap.
+
+```bash
+cargo run -p tpack-bench --example size_report
+cargo bench -p tpack-bench -- --quick   # optional; not in default CI
+```
+
+Hot encode paths should use `PreparedSchema` + a reused `Encoder` (see
+`tpack-core`); the bench harness does this via `SteadyEncoder`.
 
 ## Internet-Draft
 

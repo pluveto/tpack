@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `PreparedSchema` for one-shot schema validation/encoding reused across
+  many messages (`encode_prepared_message` / `Encoder::encode_prepared_message`)
+- `Encoder::clear`, `as_slice`, and `take_vec` for buffer reuse
+- `SchemaRef` encode no longer walks/serializes the schema descriptor
+
 ### Changed
 
 - **Breaking:** land arbitrary-precision numeric value model

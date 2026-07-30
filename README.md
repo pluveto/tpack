@@ -14,6 +14,7 @@ The workspace is split by responsibility:
 - `tpack-macros`: procedural macros for native derive support
 - `tpack`: `std` facade, registry integration, and optional `serde` support
 - `tpack-cli`: command-line tooling for inspection, verification, and canonicalization
+- `tpack-bench`: internal size/throughput harness (not published)
 
 ## Wire Protocol v1
 
@@ -60,6 +61,22 @@ The draft data model defines `Decimal`, `BigInt`, and `BigUInt` as arbitrary-pre
 - `BigUInt` currently maps to `u64`
 
 That means the current implementation is a conforming executable reference only for messages whose values fit inside those ranges.
+
+## Benchmarks
+
+Size comparison tables (TPACK envelope modes vs JSON / CBOR / MessagePack) and
+instructions for Criterion throughput runs live in
+[`docs/benchmarks.md`](docs/benchmarks.md). Regenerate the size section with:
+
+```bash
+cargo run -p tpack-bench --example size_report
+```
+
+Full Criterion benches are optional and are **not** part of default CI:
+
+```bash
+cargo bench -p tpack-bench
+```
 
 ## Verification
 

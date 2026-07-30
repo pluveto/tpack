@@ -4,6 +4,7 @@ members = [
     "crates/tpack-macros",
     "crates/tpack",
     "crates/tpack-cli",
+    "crates/tpack-bench",
 ]
 resolver = "3"
 

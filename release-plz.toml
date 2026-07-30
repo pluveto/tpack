@@ -20,3 +20,11 @@ changelog_path = "crates/tpack/CHANGELOG.md"
 [[package]]
 name = "tpack-cli"
 changelog_path = "crates/tpack-cli/CHANGELOG.md"
+
+# Internal harness only; never publish or release.
+[[package]]
+name = "tpack-bench"
+release = false
+publish = false
+changelog_update = false
+semver_check = false

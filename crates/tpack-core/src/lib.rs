@@ -11,8 +11,8 @@ mod schema;
 mod value;
 
 pub use codec::{
-    CanonicalMode, DecodeOptions, Decoder, EncodeOptions, Encoder, Limits, MAGIC, VERSION,
-    decode_message, encode_message, encode_schema, encode_value,
+    CanonicalMode, DecodeOptions, Decoder, EncodeOptions, Encoder, Limits, MAGIC, PreparedSchema,
+    VERSION, decode_message, encode_message, encode_prepared_message, encode_schema, encode_value,
 };
 pub use error::{Error, ErrorKind, ErrorPath, ErrorSource, PathSegment, Result};
 pub use native::{FromTpackValue, TpackDeserialize, TpackSerialize};

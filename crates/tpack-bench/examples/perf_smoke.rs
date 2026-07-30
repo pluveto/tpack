@@ -1,54 +1,18 @@
-//! Quick prepared vs naive FullSchema encode timing.
-use std::time::Instant;
-
-use tpack::{Encoder, EnvelopeMode, PreparedSchema, encode_message};
-use tpack_bench::{Format, Scenario, SteadyEncoder, tpack_schema, tpack_value};
+//! Tiny prepared-vs-naive check (not the full matrix).
+use tpack_bench::{flat_record, prepared_speedup};
 
 fn main() {
-    let scenario = Scenario::FlatRecord;
-    let schema = tpack_schema(scenario);
-    let value = tpack_value(scenario);
-    let n = 200_000u32;
-
-    let t0 = Instant::now();
-    for _ in 0..n {
-        let _ = encode_message(&schema, &value, EnvelopeMode::FullSchema, None).unwrap();
-    }
-    let naive = t0.elapsed();
-
-    let prepared = PreparedSchema::prepare_default(schema.clone()).unwrap();
-    let mut enc = Encoder::new();
-    let t1 = Instant::now();
-    for _ in 0..n {
-        enc.clear();
-        enc.encode_prepared_message(&prepared, &value, EnvelopeMode::FullSchema, None)
-            .unwrap();
-        std::hint::black_box(enc.as_slice());
-    }
-    let prepared_fs = t1.elapsed();
-
-    let mut steady = SteadyEncoder::for_scenario(scenario, Format::TpackSchemaRef).unwrap();
-    let t2 = Instant::now();
-    for _ in 0..n {
-        std::hint::black_box(steady.encode_in_place().unwrap());
-    }
-    let schemaref = t2.elapsed();
-
-    println!("iters={n}");
+    let w = flat_record();
+    let s = prepared_speedup(&w, 200_000).expect("speedup");
+    println!("naive FullSchema:     {:.1} ns/op", s.naive_ns);
     println!(
-        "naive FullSchema encode_message: {naive:?} ({:.1} ns/op)",
-        naive.as_secs_f64() * 1e9 / f64::from(n)
+        "prepared FullSchema:  {:.1} ns/op ({:.2}×)",
+        s.prepared_ns,
+        s.naive_ns / s.prepared_ns
     );
     println!(
-        "prepared FullSchema + reuse:     {prepared_fs:?} ({:.1} ns/op)",
-        prepared_fs.as_secs_f64() * 1e9 / f64::from(n)
-    );
-    println!(
-        "SchemaRef SteadyEncoder:         {schemaref:?} ({:.1} ns/op)",
-        schemaref.as_secs_f64() * 1e9 / f64::from(n)
-    );
-    println!(
-        "prepared speedup vs naive FullSchema: {:.2}x",
-        naive.as_secs_f64() / prepared_fs.as_secs_f64()
+        "SchemaRef warm:       {:.1} ns/op ({:.2}×)",
+        s.schemaref_ns,
+        s.naive_ns / s.schemaref_ns
     );
 }
